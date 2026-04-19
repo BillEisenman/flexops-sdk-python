@@ -1,0 +1,45 @@
+name: Publish to PyPI
+
+# Publish flexops to pypi.org when a vX.Y.Z tag is pushed.
+# Secret required:
+#   PYPI_API_TOKEN — a PyPI project-scoped API token (starts with pypi-)
+#
+# Future: consider migrating to PyPI trusted publishing (OIDC) which removes
+# the need for a stored token. See https://docs.pypi.org/trusted-publishers/
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Build sdist + wheel
+        run: python -m build
+
+      - name: Check distribution with twine
+        run: twine check dist/*
+
+      - name: Publish
+        run: twine upload dist/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
