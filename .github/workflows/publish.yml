@@ -1,11 +1,23 @@
 name: Publish to PyPI
 
-# Publish flexops to pypi.org when a vX.Y.Z tag is pushed.
-# Secret required:
-#   PYPI_API_TOKEN — a PyPI project-scoped API token (starts with pypi-)
+# Publishes flexops to pypi.org via PyPI trusted publishing (OIDC) — no
+# stored token, no MFA prompt. Triggered on vX.Y.Z tag push or manual
+# workflow_dispatch.
 #
-# Future: consider migrating to PyPI trusted publishing (OIDC) which removes
-# the need for a stored token. See https://docs.pypi.org/trusted-publishers/
+# One-time setup on pypi.org (required before the first run):
+#   1. Log in to pypi.org → project "flexops" → Publishing → Trusted Publishers
+#      → Add a new publisher
+#   2. Fill in:
+#        Publisher:  GitHub
+#        Owner:      BillEisenman
+#        Repository: flexops-sdk-python
+#        Workflow:   publish.yml
+#        Environment: (leave blank)
+#
+# If the project doesn't exist on PyPI yet, register a pending trusted
+# publisher first, then the first workflow run will create the project.
+#
+# Docs: https://docs.pypi.org/trusted-publishers/
 
 on:
   push:
@@ -15,6 +27,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write   # required to mint the OIDC token GitHub → PyPI exchanges
 
 jobs:
   publish:
@@ -38,8 +51,7 @@ jobs:
       - name: Check distribution with twine
         run: twine check dist/*
 
-      - name: Publish
-        run: twine upload dist/*
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Publish (OIDC trusted publisher)
+        uses: pypa/gh-action-pypi-publish@release/v1
+        # No PYPI_API_TOKEN. The official action detects the GitHub OIDC
+        # context and exchanges it for a short-lived PyPI upload token.
