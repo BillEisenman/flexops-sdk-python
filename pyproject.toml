@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flexops"
+version = "1.0.0"
+description = "Official FlexOps Platform Python SDK - multi-carrier shipping, order management, and logistics API"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+authors = [{ name = "FlexOps, LLC", email = "support@flexops.io" }]
+keywords = [
+    "flexops", "shipping", "logistics", "usps", "ups", "fedex", "dhl",
+    "labels", "tracking", "ecommerce", "multi-carrier", "api-client", "sdk",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
+dependencies = [
+    "requests>=2.31",
+    "pydantic>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "responses>=0.25",
+    "ruff>=0.4",
+]
+
+[project.urls]
+Homepage = "https://flexops.io"
+Documentation = "https://docs.flexops.io/sdks/python"
+Repository = "https://github.com/BillEisenman/flexops-sdk-python"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
