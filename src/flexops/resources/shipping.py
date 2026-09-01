@@ -30,15 +30,15 @@ class ShippingResource:
 
     def get_rates(self, request: dict[str, Any]) -> dict[str, Any]:
         """Get shipping rates from all configured carriers."""
-        return self._http.post(self._ws_path("shipping/rates"), request)
+        return self._http.post("/api/shipping/rates", request)
 
     def get_cheapest_rate(self, request: dict[str, Any]) -> dict[str, Any]:
         """Get the single cheapest rate across all carriers."""
-        return self._http.post(self._ws_path("shipping/rates/cheapest"), request)
+        return self._http.post("/api/shipping/rates/cheapest", request)
 
     def get_fastest_rate(self, request: dict[str, Any]) -> dict[str, Any]:
         """Get the single fastest rate across all carriers."""
-        return self._http.post(self._ws_path("shipping/rates/fastest"), request)
+        return self._http.post("/api/shipping/rates/fastest", request)
 
     # -- Labels -------------------------------------------------------------
 

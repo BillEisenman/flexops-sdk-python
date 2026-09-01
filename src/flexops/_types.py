@@ -123,17 +123,40 @@ class WorkspaceMember(_CamelModel):
 # ---------------------------------------------------------------------------
 
 
-class RateRequest(_CamelModel):
-    from_zip: str
-    to_zip: str
+class ShippingAddress(_CamelModel):
+    address_line1: str
+    city: str
+    state_province: str
+    postal_code: str
+    country_code: str = "US"
+    name: str | None = None
+    company: str | None = None
+    address_line2: str | None = None
+    phone: str | None = None
+    email: str | None = None
+    is_residential: bool | None = None
+
+
+class ShippingPackage(_CamelModel):
     weight: float
-    weight_unit: Literal["oz", "lb", "g", "kg"] | None = None
+    weight_unit: Literal["oz", "lb", "g", "kg"] = "oz"
     length: float | None = None
     width: float | None = None
     height: float | None = None
-    dimension_unit: Literal["in", "cm"] | None = None
-    package_type: str | None = None
+    dimension_unit: Literal["in", "cm"] = "in"
+    predefined_package: str | None = None
+
+
+class RateRequest(_CamelModel):
+    origin: ShippingAddress
+    destination: ShippingAddress
+    package: ShippingPackage
     carriers: list[str] | None = None
+    service_levels: list[str] | None = None
+    ship_date: str | None = None
+    include_insurance: bool = False
+    declared_value: float | None = None
+    currency: str = "USD"
 
 
 class ShippingRate(_CamelModel):

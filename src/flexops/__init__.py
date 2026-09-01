@@ -13,7 +13,11 @@ Usage::
     from flexops import FlexOps
 
     client = FlexOps(api_key="fxk_live_...", workspace_id="ws_abc123")
-    rates = client.shipping.get_rates({"fromZip": "10001", "toZip": "90210", "weight": 16})
+    rates = client.shipping.get_rates({
+        "origin": {"addressLine1": "123 Main St", "city": "New York", "stateProvince": "NY", "postalCode": "10001"},
+        "destination": {"addressLine1": "456 Oak Ave", "city": "Los Angeles", "stateProvince": "CA", "postalCode": "90210"},
+        "package": {"weight": 16, "weightUnit": "oz"},
+    })
 """
 
 from ._errors import FlexOpsAuthError, FlexOpsError, FlexOpsRateLimitError
@@ -53,6 +57,8 @@ from ._types import (
     ScanForm,
     ScanFormRequest,
     ShipmentsTrend,
+    ShippingAddress,
+    ShippingPackage,
     ShippingRate,
     ShippingRule,
     TrackingEvent,
@@ -81,7 +87,7 @@ from .resources import (
     WorkspacesResource,
 )
 
-__version__ = "1.0.0"
+__version__ = "1.0.2"
 
 __all__ = [
     # Client
@@ -103,6 +109,8 @@ __all__ = [
     "CreateWorkspaceRequest",
     "WorkspaceMember",
     "RateRequest",
+    "ShippingAddress",
+    "ShippingPackage",
     "ShippingRate",
     "CreateLabelRequest",
     "Label",

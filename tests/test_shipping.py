@@ -19,33 +19,43 @@ class TestShipping:
     @responses.activate
     def test_get_rates(self, client):
         rates = [
-            {"carrier": "USPS", "service": "Priority Mail", "rate": 8.5, "currency": "USD", "estimatedDays": 2},
-            {"carrier": "UPS", "service": "Ground", "rate": 12.3, "currency": "USD", "estimatedDays": 5},
+            {"carrierCode": "USPS", "serviceCode": "PRIORITY", "rate": 8.5, "currency": "USD", "estimatedDays": 2},
+            {"carrierCode": "UPS", "serviceCode": "GROUND", "rate": 12.3, "currency": "USD", "estimatedDays": 5},
         ]
         responses.add(
             responses.POST,
-            f"{BASE_URL}/api/workspaces/{WS_ID}/shipping/rates",
-            json={"success": True, "data": rates},
+            f"{BASE_URL}/api/shipping/rates",
+            json={"currency": "USD", "rates": rates},
             status=200,
         )
 
-        result = client.shipping.get_rates({"fromZip": "10001", "toZip": "90210", "weight": 16, "weightUnit": "oz"})
+        request = {
+            "origin": {"addressLine1": "123 Main St", "city": "New York", "stateProvince": "NY", "postalCode": "10001"},
+            "destination": {"addressLine1": "456 Oak Ave", "city": "Los Angeles", "stateProvince": "CA", "postalCode": "90210"},
+            "package": {"weight": 16, "weightUnit": "oz"},
+        }
+        result = client.shipping.get_rates(request)
 
-        assert len(result["data"]) == 2
-        assert result["data"][0]["carrier"] == "USPS"
+        assert len(result["rates"]) == 2
+        assert result["rates"][0]["carrierCode"] == "USPS"
+        assert json.loads(responses.calls[0].request.body) == request
 
     @responses.activate
     def test_get_cheapest_rate(self, client):
         responses.add(
             responses.POST,
-            f"{BASE_URL}/api/workspaces/{WS_ID}/shipping/rates/cheapest",
-            json={"success": True, "data": {"carrier": "USPS", "service": "Ground Advantage", "rate": 5.25, "currency": "USD", "estimatedDays": 4}},
+            f"{BASE_URL}/api/shipping/rates/cheapest",
+            json={"carrierCode": "USPS", "serviceCode": "GROUND_ADVANTAGE", "rate": 5.25, "currency": "USD", "estimatedDays": 4},
             status=200,
         )
 
-        result = client.shipping.get_cheapest_rate({"fromZip": "10001", "toZip": "90210", "weight": 8})
+        result = client.shipping.get_cheapest_rate({
+            "origin": {"addressLine1": "123 Main St", "city": "New York", "stateProvince": "NY", "postalCode": "10001"},
+            "destination": {"addressLine1": "456 Oak Ave", "city": "Los Angeles", "stateProvince": "CA", "postalCode": "90210"},
+            "package": {"weight": 8, "weightUnit": "oz"},
+        })
 
-        assert result["data"]["rate"] == 5.25
+        assert result["rate"] == 5.25
 
     @responses.activate
     def test_validate_address(self, client):
