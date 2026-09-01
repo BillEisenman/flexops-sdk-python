@@ -21,10 +21,9 @@ client = FlexOps(
 
 # Get shipping rates from all carriers
 rates = client.shipping.get_rates({
-    "fromZip": "10001",
-    "toZip": "90210",
-    "weight": 16,
-    "weightUnit": "oz",
+    "origin": {"addressLine1": "123 Main St", "city": "New York", "stateProvince": "NY", "postalCode": "10001"},
+    "destination": {"addressLine1": "456 Oak Ave", "city": "Los Angeles", "stateProvince": "CA", "postalCode": "90210"},
+    "package": {"weight": 16, "weightUnit": "oz"},
 })
 
 # Create a label with the cheapest rate
@@ -111,13 +110,13 @@ Every SDK method is a thin wrapper around the FlexOps REST API. If you want to v
 
 ```bash
 # Shop rates across all connected carriers
-curl -X POST https://gateway.flexops.io/api/workspaces/ws_abc123/shipping/rates \
+curl -X POST https://gateway.flexops.io/api/shipping/rates \
   -H "X-API-Key: fxk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
-    "fromAddress": {"street1": "123 Main St", "city": "New York", "state": "NY", "zip": "10001", "country": "US"},
-    "toAddress":   {"street1": "456 Oak Ave", "city": "Los Angeles", "state": "CA", "zip": "90210", "country": "US"},
-    "parcel":      {"weight": 16, "weightUnit": "oz"}
+    "origin": {"addressLine1": "123 Main St", "city": "New York", "stateProvince": "NY", "postalCode": "10001", "countryCode": "US"},
+    "destination": {"addressLine1": "456 Oak Ave", "city": "Los Angeles", "stateProvince": "CA", "postalCode": "90210", "countryCode": "US"},
+    "package": {"weight": 16, "weightUnit": "oz"}
   }'
 
 # Create a label

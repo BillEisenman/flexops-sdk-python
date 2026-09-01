@@ -30,13 +30,17 @@ class TestErrorHandling:
     def test_throws_flexops_error_on_400(self, client):
         responses.add(
             responses.POST,
-            f"{BASE_URL}/api/workspaces/ws-test-001/shipping/rates",
+            f"{BASE_URL}/api/shipping/rates",
             json={"message": "Validation failed", "errors": ["weight is required"]},
             status=400,
         )
 
         with pytest.raises(FlexOpsError) as exc_info:
-            client.shipping.get_rates({"fromZip": "", "toZip": "", "weight": 0})
+            client.shipping.get_rates({
+                "origin": {"addressLine1": "", "city": "", "stateProvince": "", "postalCode": ""},
+                "destination": {"addressLine1": "", "city": "", "stateProvince": "", "postalCode": ""},
+                "package": {"weight": 0},
+            })
         assert exc_info.value.status == 400
         assert exc_info.value.errors == ["weight is required"]
 
