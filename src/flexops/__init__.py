@@ -89,7 +89,7 @@ from .resources import (
     WorkspacesResource,
 )
 
-__version__ = "1.0.2"
+__version__ = "2.0.0"
 
 __all__ = [
     # Client
