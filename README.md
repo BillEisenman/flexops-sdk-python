@@ -47,16 +47,15 @@ def purchase_approved_label(request, preview, purchase_key):
 tracking = client.shipping.track("9400111899223456789012")
 ```
 
-### Live label approval (unreleased SDK changes)
+### Live label approval (2.0.0+)
 
 Migration: the optional `CreateLabelRequest` model now uses `carrier_code`,
 `service_code`, `origin`, `destination`, and `package`. Raw dictionaries use the
 camelCase Gateway names shown below. Pass `idempotency_key` to the method, not
 inside the request body. See [CHANGELOG.md](CHANGELOG.md) for model changes.
 
-The example below requires this source revision; the published 1.0.2 packages do
-not include the new per-call idempotency argument. Release these SDK changes before
-using that argument from a package registry.
+The example below requires SDK 2.0.0 or later. Version 1.0.2 does not
+include the per-call idempotency argument.
 
 For live domestic single-label requests, `maximumPostageAmount` is required: positive
 USD, at most two decimal places, up to 1,000,000. Missing or invalid values return
