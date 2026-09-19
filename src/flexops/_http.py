@@ -45,8 +45,9 @@ class HttpClient:
     def get(self, path: str, query: dict[str, Any] | None = None) -> Any:
         return self.request("GET", path, query=query)
 
-    def post(self, path: str, body: Any = None, query: dict[str, Any] | None = None) -> Any:
-        return self.request("POST", path, body=body, query=query)
+    def post(self, path: str, body: Any = None, query: dict[str, Any] | None = None,
+             *, headers: dict[str, str] | None = None) -> Any:
+        return self.request("POST", path, body=body, query=query, headers=headers)
 
     def put(self, path: str, body: Any = None) -> Any:
         return self.request("PUT", path, body=body)
@@ -128,6 +129,7 @@ class HttpClient:
                 error = FlexOpsError(
                     error_body.get("message", f"HTTP {resp.status_code}: {resp.reason}"),
                     status=resp.status_code,
+                    code=error_body.get("errorCode") or error_body.get("code"),
                     errors=error_body.get("errors"),
                 )
 

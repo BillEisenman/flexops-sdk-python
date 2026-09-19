@@ -196,21 +196,30 @@ class Parcel(_CamelModel):
 
 
 class CreateLabelRequest(_CamelModel):
-    carrier: str
-    service: str
-    from_address: Address
-    to_address: Address
-    parcel: Parcel
-    return_label: bool | None = None
+    carrier_code: str
+    service_code: str
+    origin: ShippingAddress
+    destination: ShippingAddress
+    package: ShippingPackage
+    maximum_postage_amount: float | None = None
+    confirmation_token: str | None = None
     label_format: Literal["PDF", "PNG", "ZPL"] | None = None
-    idempotency_key: str | None = None
+
+
+class LabelPurchasePreview(_CamelModel):
+    status: Literal["Preview"]
+    quoted_postage_amount: float
+    maximum_postage_amount: float
+    currency: str
+    expires_at: str
+    confirmation_token: str
 
 
 class Label(_CamelModel):
     label_id: str
     tracking_number: str
-    carrier: str
-    service: str
+    carrier_code: str
+    currency: str = "USD"
     label_data: str
     label_format: str
     rate: float

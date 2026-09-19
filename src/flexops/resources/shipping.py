@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any, Callable
 
 from .._http import HttpClient
+from .._types import CreateLabelRequest
 
 
 class ShippingResource:
@@ -42,9 +43,19 @@ class ShippingResource:
 
     # -- Labels -------------------------------------------------------------
 
-    def create_label(self, request: dict[str, Any]) -> dict[str, Any]:
-        """Create a shipping label."""
-        return self._http.post(self._ws_path("shipping/labels"), request)
+    def create_label(self, request: dict[str, Any] | CreateLabelRequest,
+                     *, idempotency_key: str | None = None) -> dict[str, Any]:
+        """Preview postage, or purchase with explicit confirmation and an idempotency key.
+
+        Returns the raw preview (status=Preview) or purchased label, never an envelope.
+        Reuse the purchase key when retrying an uncertain outcome.
+        """
+        body = (
+            request.model_dump(by_alias=True, exclude_none=True)
+            if isinstance(request, CreateLabelRequest) else request
+        )
+        headers = {"Idempotency-Key": idempotency_key} if idempotency_key is not None else None
+        return self._http.post(self._ws_path("shipping/labels"), body, headers=headers)
 
     def cancel_label(self, label_id: str) -> dict[str, Any]:
         """Cancel (void) a shipping label."""
