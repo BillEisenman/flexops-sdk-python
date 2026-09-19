@@ -50,7 +50,8 @@ class FlexOps:
         # Get shipping rates
         rates = client.shipping.get_rates({
             "origin": {"addressLine1": "123 Main St", "city": "New York", "stateProvince": "NY", "postalCode": "10001"},
-            "destination": {"addressLine1": "456 Oak Ave", "city": "Los Angeles", "stateProvince": "CA", "postalCode": "90210"},
+            "destination": {"addressLine1": "456 Oak Ave", "city": "Los Angeles",
+                            "stateProvince": "CA", "postalCode": "90210"},
             "package": {"weight": 16, "weightUnit": "oz"},
             "weightUnit": "oz",
         })

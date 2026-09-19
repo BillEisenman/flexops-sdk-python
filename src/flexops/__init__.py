@@ -15,7 +15,8 @@ Usage::
     client = FlexOps(api_key="fxk_live_...", workspace_id="ws_abc123")
     rates = client.shipping.get_rates({
         "origin": {"addressLine1": "123 Main St", "city": "New York", "stateProvince": "NY", "postalCode": "10001"},
-        "destination": {"addressLine1": "456 Oak Ave", "city": "Los Angeles", "stateProvince": "CA", "postalCode": "90210"},
+        "destination": {"addressLine1": "456 Oak Ave", "city": "Los Angeles",
+                            "stateProvince": "CA", "postalCode": "90210"},
         "package": {"weight": 16, "weightUnit": "oz"},
     })
 """
@@ -38,6 +39,7 @@ from ._types import (
     InsurancePolicy,
     InsuranceQuote,
     Label,
+    LabelPurchasePreview,
     LoginRequest,
     LoginResponse,
     Order,
@@ -114,6 +116,7 @@ __all__ = [
     "ShippingRate",
     "CreateLabelRequest",
     "Label",
+    "LabelPurchasePreview",
     "Address",
     "Parcel",
     "TrackingInfo",

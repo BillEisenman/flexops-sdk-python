@@ -26,32 +26,53 @@ rates = client.shipping.get_rates({
     "package": {"weight": 16, "weightUnit": "oz"},
 })
 
-# Create a label with the cheapest rate
-label = client.shipping.create_label({
-    "carrier": rates["data"][0]["carrier"],
-    "service": rates["data"][0]["service"],
-    "fromAddress": {
-        "name": "Warehouse",
-        "street1": "123 Main St",
-        "city": "New York",
-        "state": "NY",
-        "zip": "10001",
-        "country": "US",
-    },
-    "toAddress": {
-        "name": "Customer",
-        "street1": "456 Oak Ave",
-        "city": "Los Angeles",
-        "state": "CA",
-        "zip": "90210",
-        "country": "US",
-    },
-    "parcel": {"weight": 16, "weightUnit": "oz"},
-})
+request = {
+    "carrierCode": "USPS", "serviceCode": "GROUND_ADVANTAGE",
+    "origin": {"name": "Warehouse", "addressLine1": "123 Main St", "city": "New York", "stateProvince": "NY", "postalCode": "10001", "countryCode": "US"},
+    "destination": {"name": "Customer", "addressLine1": "456 Oak Ave", "city": "Los Angeles", "stateProvince": "CA", "postalCode": "90210", "countryCode": "US"},
+    "package": {"weight": 16, "weightUnit": "oz"},
+    "maximumPostageAmount": 10.25,  # Caller-approved ceiling in USD.
+}
+preview = client.shipping.create_label(request)
+print(preview["quotedPostageAmount"], preview["expiresAt"])
+
+# Run only after the caller explicitly approves this preview (within five minutes).
+def purchase_approved_label(request, preview, purchase_key):
+    return client.shipping.create_label(
+        {**request, "confirmationToken": preview["confirmationToken"]},
+        idempotency_key=purchase_key,  # Persist per purchase; reuse on retries.
+    )
 
 # Track a shipment
 tracking = client.shipping.track("9400111899223456789012")
 ```
+
+### Live label approval (unreleased SDK changes)
+
+Migration: the optional `CreateLabelRequest` model now uses `carrier_code`,
+`service_code`, `origin`, `destination`, and `package`. Raw dictionaries use the
+camelCase Gateway names shown below. Pass `idempotency_key` to the method, not
+inside the request body. See [CHANGELOG.md](CHANGELOG.md) for model changes.
+
+The example below requires this source revision; the published 1.0.2 packages do
+not include the new per-call idempotency argument. Release these SDK changes before
+using that argument from a package registry.
+
+For live domestic single-label requests, `maximumPostageAmount` is required: positive
+USD, at most two decimal places, up to 1,000,000. Missing or invalid values return
+400 `ApprovalRequired`. Omitting `confirmationToken` returns a raw 200 preview
+(`status`, `quotedPostageAmount`, `maximumPostageAmount`, `currency`, `expiresAt`,
+`confirmationToken`). After explicit approval, resubmit the same shipment and ceiling
+with the token and a unique per-purchase `Idempotency-Key` header. The token expires
+after five minutes. A successful purchase returns the raw 201 label, including
+`labelId`, `trackingNumber`, `carrierCode`, and `labelData`, without a `data` wrapper.
+
+Keep the same key and request across retries. An uncertain outcome needs reconciliation;
+do not start another purchase with a new key. An expired approval returns 409
+`ApprovalExpired`; obtain and explicitly approve a fresh preview when no purchase is
+unresolved. The ceiling bounds postage authorization, not later adjustments or separate
+fees. Sandbox execution bypasses approval; batch, return, and raw carrier routes have
+separate contracts. The SDK never automatically confirms a preview.
 
 ## Authentication
 
@@ -119,17 +140,21 @@ curl -X POST https://gateway.flexops.io/api/shipping/rates \
     "package": {"weight": 16, "weightUnit": "oz"}
   }'
 
-# Create a label
+# Preview a live label; this does not purchase it.
 curl -X POST https://gateway.flexops.io/api/workspaces/ws_abc123/shipping/labels \
   -H "X-API-Key: fxk_live_..." \
   -H "Content-Type: application/json" \
   -d '{
-    "carrier":  "USPS",
-    "service":  "PRIORITY_MAIL",
-    "fromAddress": {"name": "Warehouse", "street1": "123 Main St", "city": "New York", "state": "NY", "zip": "10001", "country": "US"},
-    "toAddress":   {"name": "Customer",  "street1": "456 Oak Ave", "city": "Los Angeles", "state": "CA", "zip": "90210", "country": "US"},
-    "parcel":   {"weight": 16, "weightUnit": "oz"}
+    "carrierCode": "USPS", "serviceCode": "GROUND_ADVANTAGE",
+    "origin": {"name": "Warehouse", "addressLine1": "123 Main St", "city": "New York", "stateProvince": "NY", "postalCode": "10001", "countryCode": "US"},
+    "destination": {"name": "Customer", "addressLine1": "456 Oak Ave", "city": "Los Angeles", "stateProvince": "CA", "postalCode": "90210", "countryCode": "US"},
+    "package": {"weight": 16, "weightUnit": "oz"},
+    "maximumPostageAmount": 10.25
   }'
+
+# After explicit approval, resend the same body with confirmationToken from
+# the preview and an Idempotency-Key header unique to this purchase.
+# See the SDK example above; retain that key for retries.
 
 # Track a shipment
 curl https://gateway.flexops.io/api/workspaces/ws_abc123/shipping/track/9400111899223456789012 \
