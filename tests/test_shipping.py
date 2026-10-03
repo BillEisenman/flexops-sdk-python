@@ -151,3 +151,35 @@ class TestShipping:
             assert error.value.status == status
             assert error.value.code == code
         assert len(responses.calls) == 2
+
+    @responses.activate
+    def test_international_customs_typed_contract(self, client):
+        from pathlib import Path
+        from flexops import CreateLabelRequest
+        fixture = json.loads((Path(__file__).parents[1] / "examples/international-label.json").read_text())
+        request = CreateLabelRequest.model_validate(fixture)
+        url = f"{BASE_URL}/api/workspaces/{WS_ID}/shipping/labels"
+        responses.add(responses.POST, url, json={"status": "Preview", "confirmationToken": "approved"}, status=200)
+        result = client.shipping.create_label(request)
+        assert result["status"] == "Preview"
+        assert len(responses.calls) == 1
+        sent = json.loads(responses.calls[0].request.body)
+        assert sent["customsDeclaration"] == fixture["customsDeclaration"]
+        assert sent["orderId"] == 42
+        assert sent["shipDate"] == "2099-01-01"
+        request.confirmation_token = result["confirmationToken"]
+        responses.add(responses.POST, url, json={"labelId": "intl-1", "currency": "USD"}, status=201)
+        client.shipping.create_label(request, idempotency_key="international-1")
+        assert responses.calls[1].request.headers["Idempotency-Key"] == "international-1"
+        assert json.loads(responses.calls[1].request.body)["customsDeclaration"] == fixture["customsDeclaration"]
+
+    @responses.activate
+    def test_international_disabled_no_retry(self, client):
+        import pytest
+        from flexops import FlexOpsError
+        responses.add(responses.POST, f"{BASE_URL}/api/shipping/rates",
+                      json={"errorCode": "FeatureDisabled", "message": "International disabled"}, status=403)
+        with pytest.raises(FlexOpsError) as error:
+            client.shipping.get_rates({})
+        assert error.value.code == "FeatureDisabled"
+        assert len(responses.calls) == 1

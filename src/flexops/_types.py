@@ -195,7 +195,37 @@ class Parcel(_CamelModel):
     dimension_unit: Literal["in", "cm"] | None = None
 
 
+class CustomsItem(_CamelModel):
+    """Value and weight_oz describe one unit, not the entire line."""
+    description: str
+    quantity: int
+    value: float
+    weight_oz: float
+    hs_code: str | None = None
+    origin_country: str
+
+
+class CustomsDeclaration(_CamelModel):
+    contents_type: str = "merchandise"
+    contents_explanation: str | None = None
+    non_delivery_option: Literal["return", "abandon"] = "return"
+    currency: Literal["USD"] = "USD"
+    declared_value: float
+    aes_itn: str
+    invoice_number: str | None = None
+    license_number: str | None = None
+    certificate_number: str | None = None
+    restriction_type: str | None = None
+    restriction_comments: str | None = None
+    items: list[CustomsItem]
+
+
 class CreateLabelRequest(_CamelModel):
+    order_id: int | None = None
+    ship_date: str | None = None
+    declared_value: float | None = None
+    customs_declaration: CustomsDeclaration | None = None
+    rate_indicator: str | None = None
     carrier_code: str
     service_code: str
     origin: ShippingAddress

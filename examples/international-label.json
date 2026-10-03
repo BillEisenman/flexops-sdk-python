@@ -1,0 +1,51 @@
+{
+  "origin": {
+    "addressLine1": "1 Main",
+    "city": "San Francisco",
+    "stateProvince": "CA",
+    "postalCode": "94105",
+    "countryCode": "US"
+  },
+  "destination": {
+    "addressLine1": "2 Example",
+    "city": "London",
+    "stateProvince": "London",
+    "postalCode": "SW1A 1AA",
+    "countryCode": "GB"
+  },
+  "package": {
+    "weight": 32,
+    "weightUnit": "oz",
+    "length": 6,
+    "width": 4,
+    "height": 2,
+    "dimensionUnit": "in"
+  },
+  "carrierCode": "USPS",
+  "serviceCode": "PRIORITY_INTERNATIONAL",
+  "orderId": 42,
+  "labelFormat": "PDF",
+  "shipDate": "2099-01-01",
+  "maximumPostageAmount": 50,
+  "customsDeclaration": {
+    "contentsType": "merchandise",
+    "nonDeliveryOption": "return",
+    "currency": "USD",
+    "declaredValue": 25,
+    "aesItn": "NOEEI 30.37(a)",
+    "invoiceNumber": "FIXTURE-1",
+    "licenseNumber": "LIC-1",
+    "certificateNumber": "CERT-1",
+    "restrictionType": "NONE",
+    "items": [
+      {
+        "description": "Cotton shirt",
+        "quantity": 2,
+        "value": 12.5,
+        "weightOz": 4,
+        "hsCode": "610910",
+        "originCountry": "US"
+      }
+    ]
+  }
+}
