@@ -123,7 +123,11 @@ class HttpClient:
                 error = FlexOpsError(
                     error_body.get("message", f"HTTP {resp.status_code}: {resp.reason}"),
                     status=resp.status_code,
-                    code=error_body.get("errorCode") or error_body.get("code") or ("FORBIDDEN" if resp.status_code == 403 else None),
+                    code=(
+                        error_body.get("errorCode")
+                        or error_body.get("code")
+                        or ("FORBIDDEN" if resp.status_code == 403 else None)
+                    ),
                     errors=error_body.get("errors"),
                 )
 

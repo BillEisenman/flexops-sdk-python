@@ -155,6 +155,7 @@ class TestShipping:
     @responses.activate
     def test_international_customs_typed_contract(self, client):
         from pathlib import Path
+
         from flexops import CreateLabelRequest
         fixture = json.loads((Path(__file__).parents[1] / "examples/international-label.json").read_text())
         request = CreateLabelRequest.model_validate(fixture)
@@ -176,6 +177,7 @@ class TestShipping:
     @responses.activate
     def test_international_disabled_no_retry(self, client):
         import pytest
+
         from flexops import FlexOpsError
         responses.add(responses.POST, f"{BASE_URL}/api/shipping/rates",
                       json={"errorCode": "FeatureDisabled", "message": "International disabled"}, status=403)
