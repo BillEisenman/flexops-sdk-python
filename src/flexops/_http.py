@@ -112,12 +112,6 @@ class HttpClient:
                 # Auth errors - don't retry
                 if resp.status_code == 401:
                     raise FlexOpsAuthError()
-                if resp.status_code == 403:
-                    raise FlexOpsError(
-                        "Access denied. Check your plan tier and feature entitlements.",
-                        status=403,
-                        code="FORBIDDEN",
-                    )
 
                 # Parse error body
                 error_body: dict[str, Any] = {}
@@ -129,9 +123,16 @@ class HttpClient:
                 error = FlexOpsError(
                     error_body.get("message", f"HTTP {resp.status_code}: {resp.reason}"),
                     status=resp.status_code,
-                    code=error_body.get("errorCode") or error_body.get("code"),
+                    code=(
+                        error_body.get("errorCode")
+                        or error_body.get("code")
+                        or ("FORBIDDEN" if resp.status_code == 403 else None)
+                    ),
                     errors=error_body.get("errors"),
                 )
+
+                if resp.status_code == 403:
+                    raise error
 
                 if resp.status_code in self._retry.retryable_status_codes:
                     last_error = error
