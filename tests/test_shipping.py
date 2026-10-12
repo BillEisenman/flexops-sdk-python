@@ -259,6 +259,16 @@ class TestHazmatClassification:
         assert json.loads(responses.calls[0].request.body) == {}
         assert json.loads(responses.calls[1].request.body) == {"hazmatClassification": 0}
 
+    @responses.activate
+    def test_return_label_sends_the_package_weight_and_size(self, client):
+        # FlexOpsGateway#672: without a default shipping preset the Gateway needs these on the request.
+        responses.add(responses.POST, f"{BASE_URL}/api/workspaces/{WS_ID}/returns/RMA-1/label", json={"success": True})
+        client.returns.generate_label("RMA-1", weight_oz=16, length_in=10, width_in=8, height_in=4)
+
+        assert json.loads(responses.calls[0].request.body) == {
+            "weightOz": 16, "lengthIn": 10, "widthIn": 8, "heightIn": 4,
+        }
+
 
 class TestShippingGatewayRoutes:
     """The api/Shipping routes are not workspace-scoped (Gateway ShippingController)."""
