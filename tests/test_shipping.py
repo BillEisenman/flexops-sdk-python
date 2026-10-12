@@ -62,12 +62,16 @@ class TestShipping:
 
     @responses.activate
     def test_validate_address(self, client):
+        from flexops import ShippingAddress
+
         responses.add(
             responses.POST,
-            f"{BASE_URL}/api/workspaces/{WS_ID}/shipping/addresses/validate",
-            json={"success": True, "data": {"isValid": True, "messages": []}},
+            f"{BASE_URL}/api/shipping/addresses/validate",
+            json={"isValid": True, "messages": []},
             status=200,
         )
+        canonical = {"addressLine1": "123 Main St", "city": "New York", "stateProvince": "NY",
+                     "postalCode": "10001", "countryCode": "US"}
 
         result = client.shipping.validate_address({
             "name": "John Doe",
@@ -77,8 +81,13 @@ class TestShipping:
             "zip": "10001",
             "country": "US",
         })
+        client.shipping.validate_address(canonical)
+        client.shipping.validate_address(ShippingAddress.model_validate(canonical))
 
-        assert result["data"]["isValid"] is True
+        assert result["isValid"] is True
+        assert json.loads(responses.calls[0].request.body) == {"address": {"name": "John Doe", **canonical}}
+        assert json.loads(responses.calls[1].request.body) == {"address": canonical}
+        assert json.loads(responses.calls[2].request.body) == {"address": canonical}
 
     @responses.activate
     def test_track_shipment(self, client):
@@ -113,7 +122,7 @@ class TestShipping:
             destination={"addressLine1": "2 St", "city": "LA", "stateProvince": "CA", "postalCode": "90210"},
             package={"weight": 16}, maximum_postage_amount=10.25,
         )
-        url = f"{BASE_URL}/api/workspaces/{WS_ID}/shipping/labels"
+        url = f"{BASE_URL}/api/shipping/labels"
         preview = dict(status="Preview", quotedPostageAmount=8.5, maximumPostageAmount=10.25,
                        currency="USD", expiresAt="2026-09-19T00:05:00Z", confirmationToken="approval")
         responses.add(responses.POST, url, json=preview)
@@ -143,7 +152,7 @@ class TestShipping:
         import pytest
 
         from flexops import FlexOpsError
-        url = f"{BASE_URL}/api/workspaces/{WS_ID}/shipping/labels"
+        url = f"{BASE_URL}/api/shipping/labels"
         for status, code in [(400, "ApprovalRequired"), (409, "ApprovalExpired")]:
             responses.add(responses.POST, url, json={"errorCode": code, "message": code}, status=status)
             with pytest.raises(FlexOpsError) as error:
@@ -159,7 +168,7 @@ class TestShipping:
         from flexops import CreateLabelRequest
         fixture = json.loads((Path(__file__).parents[1] / "examples/international-label.json").read_text())
         request = CreateLabelRequest.model_validate(fixture)
-        url = f"{BASE_URL}/api/workspaces/{WS_ID}/shipping/labels"
+        url = f"{BASE_URL}/api/shipping/labels"
         responses.add(responses.POST, url, json={"status": "Preview", "confirmationToken": "approved"}, status=200)
         result = client.shipping.create_label(request)
         assert result["status"] == "Preview"
@@ -185,3 +194,70 @@ class TestShipping:
             client.shipping.get_rates({})
         assert error.value.code == "FeatureDisabled"
         assert len(responses.calls) == 1
+
+
+class TestHazmatClassification:
+    """The HAZMAT declaration is sent only when the caller sets it; the SDK never defaults it."""
+
+    request = {
+        "carrier_code": "USPS", "service_code": "PRIORITY",
+        "origin": {"addressLine1": "1 St", "city": "NY", "stateProvince": "NY", "postalCode": "10001"},
+        "destination": {"addressLine1": "2 St", "city": "LA", "stateProvince": "CA", "postalCode": "90210"},
+        "package": {"weight": 16},
+    }
+
+    def test_values_match_the_gateway_enum(self):
+        from flexops import HazmatClassification
+
+        assert {c.name: int(c) for c in HazmatClassification} == {
+            "NONE": 0, "LIMITED_QUANTITY": 1, "LITHIUM_BATTERY_CONTAINED_IN_EQUIPMENT": 2,
+            "LITHIUM_BATTERY_PACKED_WITH_EQUIPMENT": 3, "LITHIUM_BATTERY_STANDALONE": 4,
+            "OTHER_RESTRICTED": 5, "LITHIUM_BATTERY_USED_DEVICE": 6,
+        }
+
+    @responses.activate
+    def test_label_sends_hazmat_only_when_set(self, client):
+        from flexops import CreateLabelRequest, HazmatClassification
+
+        responses.add(responses.POST, f"{BASE_URL}/api/shipping/labels", json={"labelId": "l", "isSandbox": True})
+        client.shipping.create_label(CreateLabelRequest(**self.request))
+        none = HazmatClassification.NONE
+        client.shipping.create_label(CreateLabelRequest(**self.request, hazmat_classification=none))
+        client.shipping.create_label(CreateLabelRequest(**self.request, hazmat_classification=1))
+        client.shipping.create_label({"carrierCode": "USPS", "hazmatClassification": 0})
+
+        sent = [json.loads(call.request.body) for call in responses.calls]
+        assert "hazmatClassification" not in sent[0]
+        assert sent[1]["hazmatClassification"] == 0
+        assert sent[2]["hazmatClassification"] == 1
+        assert sent[3]["hazmatClassification"] == 0
+
+    @responses.activate
+    def test_rate_request_sends_hazmat_only_when_set(self, client):
+        from flexops import HazmatClassification, RateRequest
+
+        for path in ("rates", "rates/cheapest", "rates/fastest"):
+            responses.add(responses.POST, f"{BASE_URL}/api/shipping/{path}", json={"rates": []})
+        fields = {k: v for k, v in self.request.items() if k in ("origin", "destination", "package")}
+        client.shipping.get_rates(RateRequest(**fields))
+        client.shipping.get_rates(RateRequest(**fields, hazmat_classification=HazmatClassification.NONE))
+        client.shipping.get_cheapest_rate(RateRequest(**fields, hazmat_classification=4))
+        client.shipping.get_fastest_rate(RateRequest(**fields))
+
+        sent = [json.loads(call.request.body) for call in responses.calls]
+        assert "hazmatClassification" not in sent[0]
+        assert sent[1]["hazmatClassification"] == 0
+        assert sent[2]["hazmatClassification"] == 4
+        assert "hazmatClassification" not in sent[3]
+        assert sent[0]["origin"]["addressLine1"] == "1 St"
+
+    @responses.activate
+    def test_return_label_sends_hazmat_only_when_set(self, client):
+        from flexops import HazmatClassification
+
+        responses.add(responses.POST, f"{BASE_URL}/api/workspaces/{WS_ID}/returns/RMA-1/label", json={"success": True})
+        client.returns.generate_label("RMA-1")
+        client.returns.generate_label("RMA-1", hazmat_classification=HazmatClassification.NONE)
+
+        assert responses.calls[0].request.body is None
+        assert json.loads(responses.calls[1].request.body) == {"hazmatClassification": 0}

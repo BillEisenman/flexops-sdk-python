@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `HazmatClassification` (`IntEnum`, the Gateway numbers) and an optional `hazmat_classification` on `CreateLabelRequest` and `RateRequest`. It is sent only when set; the SDK never defaults it. Labels without an `order_id` must declare it (`HazmatClassification.NONE` for an ordinary parcel).
+- `returns.generate_label(return_id, hazmat_classification=...)` sends a declared HAZMAT class with a return label.
+- `shipping.get_rates`, `get_cheapest_rate` and `get_fastest_rate` accept a `RateRequest` model as well as a dict.
+
+### Fixed
+- `shipping.create_label()` posts to the Gateway route `/api/shipping/labels`; it used a workspace-scoped path the Gateway does not serve.
+- `shipping.validate_address()` posts the Gateway `{"address": {...}}` request to `/api/shipping/addresses/validate`, and maps a legacy `street1`/`state`/`zip` address to the Gateway field names.
+
 ## [2.0.0] - 2026-09-19
 
 ### Bounded label purchase support

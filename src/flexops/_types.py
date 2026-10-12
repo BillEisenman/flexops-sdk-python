@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+from enum import IntEnum
 from typing import Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict
@@ -147,6 +148,22 @@ class ShippingPackage(_CamelModel):
     predefined_package: str | None = None
 
 
+class HazmatClassification(IntEnum):
+    """USPS HAZMAT classification, sent as the Gateway ``HazmatClassification`` number.
+
+    There is no default: leave ``hazmat_classification`` unset when you have no answer, or send
+    ``HazmatClassification.NONE`` (0) to declare that the parcel holds no dangerous goods.
+    """
+
+    NONE = 0
+    LIMITED_QUANTITY = 1
+    LITHIUM_BATTERY_CONTAINED_IN_EQUIPMENT = 2
+    LITHIUM_BATTERY_PACKED_WITH_EQUIPMENT = 3
+    LITHIUM_BATTERY_STANDALONE = 4
+    OTHER_RESTRICTED = 5
+    LITHIUM_BATTERY_USED_DEVICE = 6
+
+
 class RateRequest(_CamelModel):
     origin: ShippingAddress
     destination: ShippingAddress
@@ -157,6 +174,8 @@ class RateRequest(_CamelModel):
     include_insurance: bool = False
     declared_value: float | None = None
     currency: str = "USD"
+    # Declared HAZMAT class, so quotes match what the label route will accept. Sent only when set.
+    hazmat_classification: HazmatClassification | None = None
 
 
 class ShippingRate(_CamelModel):
@@ -234,6 +253,9 @@ class CreateLabelRequest(_CamelModel):
     maximum_postage_amount: float | None = None
     confirmation_token: str | None = None
     label_format: Literal["PDF", "PNG", "ZPL"] | None = None
+    # Declared HAZMAT class. A label without an order_id must declare one (HazmatClassification.NONE
+    # for an ordinary parcel). Sent only when set; the SDK never fills it in.
+    hazmat_classification: HazmatClassification | None = None
 
 
 class LabelPurchasePreview(_CamelModel):
