@@ -11,9 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `HazmatClassification` (`IntEnum`, the Gateway numbers) and an optional `hazmat_classification` on `CreateLabelRequest` and `RateRequest`. It is sent only when set; the SDK never defaults it. Labels without an `order_id` must declare it (`HazmatClassification.NONE` for an ordinary parcel).
 - `returns.generate_label(return_id, hazmat_classification=...)` sends a declared HAZMAT class with a return label.
 - `shipping.get_rates`, `get_cheapest_rate` and `get_fastest_rate` accept a `RateRequest` model as well as a dict.
+- `BatchLabelItem` and `CreateBatchLabelRequest` mirror the Gateway batch body; `create_batch` and `preview_batch` accept them. `BatchLabelRequest` is deprecated (it never matched the Gateway).
 
 ### Fixed
 - `shipping.create_label()` posts to the Gateway route `/api/shipping/labels`; it used a workspace-scoped path the Gateway does not serve.
+- `shipping.track`, `cancel_label`, `get_carriers`, `get_recommendations`, `predict_delivery` and `get_savings` use the Gateway `/api/shipping/...` routes instead of workspace-scoped paths the Gateway does not serve. `cancel_label(label_id, carrier_code)` now needs the carrier code the Gateway requires; without it the SDK raises `ValueError` before any request.
 - `shipping.validate_address()` posts the Gateway `{"address": {...}}` request to `/api/shipping/addresses/validate`, and maps a legacy `street1`/`state`/`zip` address to the Gateway field names.
 
 ## [2.0.0] - 2026-09-19
