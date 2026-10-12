@@ -12,7 +12,7 @@ from typing import Any, Callable
 from urllib.parse import quote
 
 from .._http import HttpClient
-from .._types import Address, CreateLabelRequest, RateRequest, ShippingAddress
+from .._types import Address, CreateBatchLabelRequest, CreateLabelRequest, RateRequest, ShippingAddress
 
 
 class ShippingResource:
@@ -84,17 +84,17 @@ class ShippingResource:
 
     # -- Batch Labels -------------------------------------------------------
 
-    def create_batch(self, request: dict[str, Any]) -> dict[str, Any]:
+    def create_batch(self, request: dict[str, Any] | CreateBatchLabelRequest) -> dict[str, Any]:
         """Create labels in batch.
 
-        The payload is sent as given. Set ``hazmatClassification`` on an item only when you have
+        A dict is sent as given. Set ``hazmatClassification`` on an item only when you have
         a declaration; the SDK never adds one.
         """
-        return self._http.post(self._ws_path("labels/batch"), request)
+        return self._http.post(self._ws_path("labels/batch"), _to_body(request))
 
-    def preview_batch(self, request: dict[str, Any]) -> dict[str, Any]:
+    def preview_batch(self, request: dict[str, Any] | CreateBatchLabelRequest) -> dict[str, Any]:
         """Preview a batch without purchasing (dry-run)."""
-        return self._http.post(self._ws_path("labels/batch/preview"), request)
+        return self._http.post(self._ws_path("labels/batch/preview"), _to_body(request))
 
     def get_batch_status(self, job_id: str) -> dict[str, Any]:
         """Get batch job status."""
@@ -138,7 +138,7 @@ _LEGACY_ADDRESS_FIELDS = {
 
 def _to_body(request: Any) -> Any:
     """Serializes a typed request with Gateway field names; unset fields are left out."""
-    if isinstance(request, (CreateLabelRequest, RateRequest)):
+    if isinstance(request, (CreateLabelRequest, RateRequest, CreateBatchLabelRequest)):
         return request.model_dump(by_alias=True, exclude_none=True)
     return request
 

@@ -315,7 +315,35 @@ class AddressValidationResult(_CamelModel):
 # ---------------------------------------------------------------------------
 
 
+class BatchLabelItem(_CamelModel):
+    """One order in a batch: the Gateway BatchLabelItemRequest. Addresses come from the order."""
+    order_id: int
+    order_number: str | None = None
+    package_weight_in_ounces: float
+    package_length_in_inches: float
+    package_width_in_inches: float
+    package_height_in_inches: float
+    carrier_code: str | None = None
+    service_code: str | None = None
+    delivery_confirmation_required: bool = False
+    signature_confirmation_required: bool = False
+    insurance_coverage_requested: bool = False
+    insured_value: float | None = None
+    label_format: str = "PDF"
+    ship_date: str | None = None
+    # What the parcel holds. Sent only when set.
+    hazmat_classification: HazmatClassification | None = None
+
+
+class CreateBatchLabelRequest(_CamelModel):
+    """The Gateway CreateBatchLabelRequest for shipping.create_batch and preview_batch."""
+    items: list[BatchLabelItem]
+    callback_url: str | None = None
+    dry_run: bool = False
+
+
 class BatchLabelRequest(_CamelModel):
+    """Deprecated: does not match the Gateway batch body. Use CreateBatchLabelRequest."""
     items: list[CreateLabelRequest]
     idempotency_key: str | None = None
 

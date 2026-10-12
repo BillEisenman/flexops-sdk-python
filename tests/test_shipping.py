@@ -286,3 +286,47 @@ class TestShippingGatewayRoutes:
         assert client.shipping.predict_delivery({"carrierCode": "USPS"})["carrierCode"] == "USPS"
         assert client.shipping.get_savings()["lanesAnalyzed"] == 3
         assert json.loads(responses.calls[1].request.body) == {"originPostalCode": "10001"}
+
+
+class TestBatchLabels:
+    """CreateBatchLabelRequest mirrors the Gateway batch body (orders plus package measurements)."""
+
+    @responses.activate
+    def test_typed_batch_matches_gateway_shape(self, client):
+        from flexops import BatchLabelItem, CreateBatchLabelRequest, HazmatClassification
+
+        for path in ("labels/batch", "labels/batch/preview"):
+            responses.add(responses.POST, f"{BASE_URL}/api/workspaces/{WS_ID}/{path}", json={"success": True})
+        request = CreateBatchLabelRequest(items=[
+            BatchLabelItem(order_id=42, package_weight_in_ounces=16, package_length_in_inches=10,
+                           package_width_in_inches=6, package_height_in_inches=4, carrier_code="USPS",
+                           hazmat_classification=HazmatClassification.NONE),
+            BatchLabelItem(order_id=43, package_weight_in_ounces=8, package_length_in_inches=6,
+                           package_width_in_inches=4, package_height_in_inches=2),
+        ], callback_url="https://example.test/hook")
+
+        client.shipping.create_batch(request)
+        client.shipping.preview_batch(request)
+
+        sent = json.loads(responses.calls[0].request.body)
+        assert sent == {
+            "items": [
+                {"orderId": 42, "packageWeightInOunces": 16, "packageLengthInInches": 10,
+                 "packageWidthInInches": 6, "packageHeightInInches": 4, "carrierCode": "USPS",
+                 "deliveryConfirmationRequired": False, "signatureConfirmationRequired": False,
+                 "insuranceCoverageRequested": False, "labelFormat": "PDF", "hazmatClassification": 0},
+                {"orderId": 43, "packageWeightInOunces": 8, "packageLengthInInches": 6,
+                 "packageWidthInInches": 4, "packageHeightInInches": 2,
+                 "deliveryConfirmationRequired": False, "signatureConfirmationRequired": False,
+                 "insuranceCoverageRequested": False, "labelFormat": "PDF"},
+            ],
+            "callbackUrl": "https://example.test/hook",
+            "dryRun": False,
+        }
+        assert json.loads(responses.calls[1].request.body) == sent
+
+    @responses.activate
+    def test_dict_batch_is_sent_as_given(self, client):
+        responses.add(responses.POST, f"{BASE_URL}/api/workspaces/{WS_ID}/labels/batch", json={"success": True})
+        client.shipping.create_batch({"items": [{"orderId": 1}]})
+        assert json.loads(responses.calls[0].request.body) == {"items": [{"orderId": 1}]}
