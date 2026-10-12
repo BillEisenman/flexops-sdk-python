@@ -79,8 +79,8 @@ class ShippingResource:
     def create_batch(self, request: dict[str, Any]) -> dict[str, Any]:
         """Create labels in batch.
 
-        The payload is sent as given. Include ``hazmatClassification`` only when you have a
-        declaration; the SDK never adds one.
+        The payload is sent as given. Set ``hazmatClassification`` on an item only when you have
+        a declaration; the SDK never adds one.
         """
         return self._http.post(self._ws_path("labels/batch"), request)
 
