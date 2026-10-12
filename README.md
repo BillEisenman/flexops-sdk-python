@@ -160,7 +160,7 @@ curl -X POST https://gateway.flexops.io/api/shipping/labels \
 # See the SDK example above; retain that key for retries.
 
 # Track a shipment
-curl https://gateway.flexops.io/api/workspaces/ws_abc123/shipping/track/9400111899223456789012 \
+curl https://gateway.flexops.io/api/shipping/track/9400111899223456789012 \
   -H "X-API-Key: fxk_live_..."
 
 # Cancel a label (via the unified carrier-agnostic endpoint)
