@@ -93,24 +93,20 @@ class TestShipping:
     def test_track_shipment(self, client):
         responses.add(
             responses.GET,
-            f"{BASE_URL}/api/workspaces/{WS_ID}/shipping/track/9400111899223456789012",
+            f"{BASE_URL}/api/shipping/track/9400111899223456789012",
             json={
-                "success": True,
-                "data": {
-                    "trackingNumber": "9400111899223456789012",
-                    "carrier": "USPS",
-                    "status": "In Transit",
-                    "events": [{"timestamp": "2026-03-04T10:00:00Z", "status": "Departed",
-                                "description": "Left facility"}],
-                },
+                "trackingNumber": "9400111899223456789012",
+                "carrierCode": "USPS",
+                "status": "In Transit",
+                "events": [{"timestamp": "2026-03-04T10:00:00Z", "description": "Left facility"}],
             },
             status=200,
         )
 
         result = client.shipping.track("9400111899223456789012")
 
-        assert result["data"]["carrier"] == "USPS"
-        assert len(result["data"]["events"]) == 1
+        assert result["carrierCode"] == "USPS"
+        assert len(result["events"]) == 1
 
     @responses.activate
     def test_create_label(self, client):
@@ -261,3 +257,32 @@ class TestHazmatClassification:
 
         assert responses.calls[0].request.body is None
         assert json.loads(responses.calls[1].request.body) == {"hazmatClassification": 0}
+
+
+class TestShippingGatewayRoutes:
+    """The api/Shipping routes are not workspace-scoped (Gateway ShippingController)."""
+
+    @responses.activate
+    def test_cancel_label_sends_carrier_code(self, client):
+        import pytest
+
+        responses.add(responses.DELETE, f"{BASE_URL}/api/shipping/labels/lbl-1", json={"success": True},
+                      match=[responses.matchers.query_param_matcher({"carrierCode": "USPS"})])
+        assert client.shipping.cancel_label("lbl-1", "USPS")["success"] is True
+        assert client.shipping.cancel_label("lbl-1", carrier_code="USPS")["success"] is True
+        with pytest.raises(ValueError, match="carrier_code"):
+            client.shipping.cancel_label("lbl-1")
+        assert len(responses.calls) == 2
+
+    @responses.activate
+    def test_read_and_ai_calls_use_gateway_routes(self, client):
+        responses.add(responses.GET, f"{BASE_URL}/api/shipping/carriers", json=[{"carrierCode": "USPS"}])
+        responses.add(responses.POST, f"{BASE_URL}/api/shipping/recommendations", json={"lane": "100->902"})
+        responses.add(responses.POST, f"{BASE_URL}/api/shipping/predictions/delivery", json={"carrierCode": "USPS"})
+        responses.add(responses.GET, f"{BASE_URL}/api/shipping/savings", json={"lanesAnalyzed": 3})
+
+        assert client.shipping.get_carriers()[0]["carrierCode"] == "USPS"
+        assert client.shipping.get_recommendations({"originPostalCode": "10001"})["lane"] == "100->902"
+        assert client.shipping.predict_delivery({"carrierCode": "USPS"})["carrierCode"] == "USPS"
+        assert client.shipping.get_savings()["lanesAnalyzed"] == 3
+        assert json.loads(responses.calls[1].request.body) == {"originPostalCode": "10001"}

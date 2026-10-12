@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 from typing import Any, Callable
+from urllib.parse import quote
 
 from .._http import HttpClient
 from .._types import Address, CreateLabelRequest, RateRequest, ShippingAddress
@@ -54,15 +55,22 @@ class ShippingResource:
         headers = {"Idempotency-Key": idempotency_key} if idempotency_key is not None else None
         return self._http.post("/api/shipping/labels", _to_body(request), headers=headers)
 
-    def cancel_label(self, label_id: str) -> dict[str, Any]:
-        """Cancel (void) a shipping label."""
-        return self._http.delete(self._ws_path(f"shipping/labels/{label_id}"))
+    def cancel_label(self, label_id: str, carrier_code: str | None = None) -> dict[str, Any]:
+        """Cancel (void) a shipping label.
+
+        ``carrier_code`` (for example ``"USPS"``) is required by the Gateway; it is optional here
+        only so older call sites fail with a clear error instead of a TypeError.
+        """
+        if not carrier_code:
+            raise ValueError("carrier_code is required to cancel a label (for example 'USPS').")
+        return self._http.delete(
+            f"/api/shipping/labels/{quote(label_id, safe='')}?carrierCode={quote(carrier_code, safe='')}")
 
     # -- Tracking -----------------------------------------------------------
 
     def track(self, tracking_number: str) -> dict[str, Any]:
         """Track a shipment by tracking number."""
-        return self._http.get(self._ws_path(f"shipping/track/{tracking_number}"))
+        return self._http.get(f"/api/shipping/track/{quote(tracking_number, safe='')}")
 
     # -- Address Validation -------------------------------------------------
 
@@ -100,23 +108,23 @@ class ShippingResource:
 
     def get_carriers(self) -> dict[str, Any]:
         """List available carriers and their services."""
-        return self._http.get(self._ws_path("shipping/carriers"))
+        return self._http.get("/api/shipping/carriers")
 
     # -- Recommendations & Predictions --------------------------------------
 
     def get_recommendations(self, request: dict[str, Any]) -> dict[str, Any]:
         """Get AI-powered shipping service recommendations."""
-        return self._http.post(self._ws_path("shipping/recommendations"), request)
+        return self._http.post("/api/shipping/recommendations", request)
 
     def predict_delivery(self, request: dict[str, Any]) -> dict[str, Any]:
         """Predict the delivery date for a prospective shipment."""
-        return self._http.post(self._ws_path("shipping/predictions/delivery"), request)
+        return self._http.post("/api/shipping/predictions/delivery", request)
 
     # -- Savings ------------------------------------------------------------
 
     def get_savings(self) -> dict[str, Any]:
         """Get a summary of shipping cost savings for the workspace."""
-        return self._http.get(self._ws_path("shipping/savings"))
+        return self._http.get("/api/shipping/savings")
 
 
 _LEGACY_ADDRESS_FIELDS = {
