@@ -73,7 +73,9 @@ class ReturnsResource:
 
         ``hazmat_classification`` (a ``HazmatClassification``) is sent only when set.
         """
-        body = None if hazmat_classification is None else {"hazmatClassification": int(hazmat_classification)}
+        # Always a JSON object: the Gateway binds a required GenerateReturnLabelRequest body
+        # and refuses an empty one with 400.
+        body = {} if hazmat_classification is None else {"hazmatClassification": int(hazmat_classification)}
         return self._http.post(self._ws_path(f"{return_id}/label"), body)
 
     def mark_received(self, return_id: str, items: list[dict[str, Any]]) -> dict[str, Any]:

@@ -255,7 +255,8 @@ class TestHazmatClassification:
         client.returns.generate_label("RMA-1")
         client.returns.generate_label("RMA-1", hazmat_classification=HazmatClassification.NONE)
 
-        assert responses.calls[0].request.body is None
+        # The Gateway binds a required GenerateReturnLabelRequest body; {} takes its defaults.
+        assert json.loads(responses.calls[0].request.body) == {}
         assert json.loads(responses.calls[1].request.body) == {"hazmatClassification": 0}
 
 
