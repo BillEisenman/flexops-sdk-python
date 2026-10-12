@@ -68,14 +68,42 @@ class ReturnsResource:
         """Cancel a return authorization."""
         return self._http.post(self._ws_path(f"{return_id}/cancel"))
 
-    def generate_label(self, return_id: str, *, hazmat_classification: int | None = None) -> dict[str, Any]:
+    def generate_label(
+        self,
+        return_id: str,
+        *,
+        weight_oz: float | None = None,
+        length_in: float | None = None,
+        width_in: float | None = None,
+        height_in: float | None = None,
+        carrier_code: str | None = None,
+        service_type: str | None = None,
+        payment_confirmed: bool | None = None,
+        hazmat_classification: int | None = None,
+    ) -> dict[str, Any]:
         """Generate a return label for an approved RMA.
 
-        ``hazmat_classification`` (a ``HazmatClassification``) is sent only when set.
+        The carrier needs the package weight and all three dimensions: pass ``weight_oz``,
+        ``length_in``, ``width_in`` and ``height_in``. Anything left out comes from the
+        workspace's default shipping preset; with no preset the Gateway answers 400
+        ``PackageMeasurementsRequired`` naming the missing fields.
+
+        Only the arguments you set are sent. ``hazmat_classification`` (a ``HazmatClassification``)
+        declares what the return holds.
         """
+        fields = {
+            "carrierCode": carrier_code,
+            "serviceType": service_type,
+            "weightOz": weight_oz,
+            "lengthIn": length_in,
+            "widthIn": width_in,
+            "heightIn": height_in,
+            "paymentConfirmed": payment_confirmed,
+            "hazmatClassification": None if hazmat_classification is None else int(hazmat_classification),
+        }
         # Always a JSON object: the Gateway binds a required GenerateReturnLabelRequest body
         # and refuses an empty one with 400.
-        body = {} if hazmat_classification is None else {"hazmatClassification": int(hazmat_classification)}
+        body = {key: value for key, value in fields.items() if value is not None}
         return self._http.post(self._ws_path(f"{return_id}/label"), body)
 
     def mark_received(self, return_id: str, items: list[dict[str, Any]]) -> dict[str, Any]:

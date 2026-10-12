@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `HazmatClassification` (`IntEnum`, the Gateway numbers) and an optional `hazmat_classification` on `CreateLabelRequest` and `RateRequest`. It is sent only when set; the SDK never defaults it. Labels without an `order_id` must declare it (`HazmatClassification.NONE` for an ordinary parcel).
 - `returns.generate_label(return_id, hazmat_classification=...)` sends a declared HAZMAT class with a return label.
+- `returns.generate_label` also takes `weight_oz`, `length_in`, `width_in`, `height_in`, `carrier_code`, `service_type` and `payment_confirmed`. The Gateway needs the package: a workspace with no default shipping preset gets a 400 (`PackageMeasurementsRequired`) naming the missing fields when it is left out (Gateway #672).
 - `shipping.get_rates`, `get_cheapest_rate` and `get_fastest_rate` accept a `RateRequest` model as well as a dict.
 - `BatchLabelItem` and `CreateBatchLabelRequest` mirror the Gateway batch body; `create_batch` and `preview_batch` accept them. `BatchLabelRequest` is deprecated (it never matched the Gateway).
 
