@@ -116,15 +116,48 @@ shipment = client.carriers.dhl.create_shipment({...})
 
 ## Webhook Verification
 
+Each delivery is a `POST` whose body is the event data itself (there is no `{"type", "data"}`
+envelope). The headers carry the rest:
+
+| Header | Value |
+|---|---|
+| `X-FlexOps-Event` | Event name, e.g. `LabelCreated`; `test` for a test delivery |
+| `X-FlexOps-Event-Id` | Event ID; use it to ignore retried duplicates |
+| `X-FlexOps-Timestamp` | Unix seconds when the delivery was signed |
+| `X-FlexOps-Signature` | `sha256=` + hex HMAC-SHA256 of `{timestamp}.{raw body}`, keyed with your `whsec_...` secret |
+| `X-FlexOps-Delivery` | Delivery attempt ID |
+
+Verify against the raw body bytes; re-serialized JSON does not reproduce what was signed.
+
 ```python
+import json
+import os
+
+from flask import Flask, request
+
 from flexops import WebhooksResource
 
-is_valid = WebhooksResource.verify_signature(
-    payload=request.body.decode(),
-    signature=request.headers["X-FlexOps-Signature"],
-    secret="whsec_...",
-)
+app = Flask(__name__)
+
+
+@app.post("/webhooks/flexops")
+def flexops_webhook():
+    raw_body = request.get_data()  # bytes, exactly as received
+    if not WebhooksResource.verify_signature(
+        raw_body,
+        request.headers.get("X-FlexOps-Signature"),
+        os.environ["FLEXOPS_WEBHOOK_SECRET"],
+        timestamp=request.headers.get("X-FlexOps-Timestamp"),  # rejected if more than 300 s from now
+    ):
+        return "Invalid signature", 401
+
+    event_type = request.headers["X-FlexOps-Event"]  # "LabelCreated", "TrackingUpdated", "test", ...
+    data = json.loads(raw_body)  # the event data; no envelope
+    # Process the event...
+    return "", 200
 ```
+
+`timestamp` is keyword-only and required. Pass `tolerance=` (seconds) to change the 300 second window.
 
 ## Curl Quickstart
 
