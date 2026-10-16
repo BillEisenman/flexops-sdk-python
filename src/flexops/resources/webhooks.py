@@ -49,6 +49,18 @@ def _to_event_types(events: Iterable[WebhookEventType | str]) -> str:
     return ",".join(names)
 
 
+def _to_envelope(body: Any) -> dict[str, Any]:
+    """Wraps the bare subscription the Gateway returns from create.
+
+    Create answers ``201`` with the subscription itself, not the ``{"success", "data"}`` envelope
+    the other webhook routes use. A bare body is wrapped so ``data["secret"]`` holds the signing
+    secret; an envelope passes through unchanged.
+    """
+    if isinstance(body, dict) and isinstance(body.get("data"), dict):
+        return body
+    return {"success": True, "data": body}
+
+
 class WebhooksResource:
     """Webhook subscription management and signature verification."""
 
@@ -83,6 +95,9 @@ class WebhooksResource:
         ``events`` lists the ``WebhookEventType`` names to receive; leave it out to receive every
         event. It is sent as the Gateway's comma-separated ``eventTypes``.
 
+        Returns ``{"success": True, "data": <subscription>}``; ``result["data"]["secret"]`` is the
+        signing secret, returned only here.
+
         Raises:
             ValueError: ``events`` is empty or names an event FlexOps never sends.
         """
@@ -91,7 +106,7 @@ class WebhooksResource:
             body["description"] = description
         if events is not None:
             body["eventTypes"] = _to_event_types(events)
-        return self._http.post(self._ws_path(), body)
+        return _to_envelope(self._http.post(self._ws_path(), body))
 
     def update(self, webhook_id: str, data: dict[str, Any]) -> dict[str, Any]:
         """Update a webhook subscription.

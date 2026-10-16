@@ -131,6 +131,36 @@ class TestWebhookCrud:
         }
 
     @responses.activate
+    def test_create_returns_secret_from_bare_201_body(self, client):
+        created = {
+            "id": "wh-001",
+            "url": "https://example.com/hook",
+            "description": None,
+            "eventTypes": "LabelCreated",
+            "status": "Active",
+            "consecutiveFailures": 0,
+            "createdAt": "2026-10-16T00:00:00Z",
+            "updatedAt": None,
+            "secret": "whsec_created",
+        }
+        responses.add(responses.POST, f"{BASE_URL}/api/workspaces/{WS_ID}/webhooks", json=created, status=201)
+
+        result = client.webhooks.create("https://example.com/hook", [WebhookEventType.LABEL_CREATED])
+
+        assert result == {"success": True, "data": created}
+        assert result["data"]["secret"] == "whsec_created"
+
+    @responses.activate
+    def test_create_still_reads_a_wrapped_response(self, client):
+        envelope = {"success": True, "message": "ok", "data": {"id": "wh-001", "secret": "whsec_wrapped"}}
+        responses.add(responses.POST, f"{BASE_URL}/api/workspaces/{WS_ID}/webhooks", json=envelope, status=200)
+
+        result = client.webhooks.create("https://example.com/hook")
+
+        assert result == envelope
+        assert result["data"]["secret"] == "whsec_wrapped"
+
+    @responses.activate
     def test_create_without_events_receives_every_event(self, client):
         responses.add(responses.POST, f"{BASE_URL}/api/workspaces/{WS_ID}/webhooks", json={"success": True}, status=200)
 
