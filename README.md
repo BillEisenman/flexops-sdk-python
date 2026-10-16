@@ -114,6 +114,30 @@ info = client.carriers.ups.track({"trackingNumber": "1Z999AA10123456784"})
 shipment = client.carriers.dhl.create_shipment({...})
 ```
 
+## Webhook Subscriptions
+
+```python
+from flexops import WebhookEventType
+
+# Leave events out to receive every event.
+webhook = client.webhooks.create(
+    "https://your-app.com/webhooks/flexops",
+    [WebhookEventType.LABEL_CREATED, WebhookEventType.LABEL_CANCELED, WebhookEventType.BATCH_COMPLETED],
+)
+signing_secret = webhook["data"]["secret"]  # returned only on create; store it
+```
+
+FlexOps sends these events, named exactly as below. Names are PascalCase and matched exactly, so a
+name like `label.created` would never match; `create` and `update` raise `ValueError` for unknown names.
+
+| Event | Sent when |
+|---|---|
+| `LabelCreated` | A live label is purchased (sandbox labels send nothing) |
+| `LabelCanceled` | A live label is voided |
+| `BatchCompleted` | A batch label job finishes |
+| `TrackingUpdated` | A USPS tracking scan arrives (USPS push-tracking pilot workspaces only) |
+| `TrackingDelivered` | A USPS package is delivered (USPS push-tracking pilot workspaces only) |
+
 ## Webhook Verification
 
 Each delivery is a `POST` whose body is the event data itself (there is no `{"type", "data"}`
