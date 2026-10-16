@@ -6,10 +6,12 @@
 # Copyright (c) 2021-2026 by FlexOps, LLC. All rights reserved.
 # ***********************************************************************
 
+import json
+
 import pytest
 import responses
 
-from flexops import WebhooksResource
+from flexops import WebhookEventType, WebhooksResource
 from tests.conftest import BASE_URL
 
 WS_ID = "ws-test-001"
@@ -117,9 +119,63 @@ class TestWebhookCrud:
             status=200,
         )
 
-        result = client.webhooks.create("https://example.com/hook", ["label.created"])
+        result = client.webhooks.create(
+            "https://example.com/hook", [WebhookEventType.LABEL_CREATED, "BatchCompleted"]
+        )
 
         assert result["data"]["id"] == "wh-001"
+        # The Gateway reads a comma-separated eventTypes (no spaces) and ignores an events field.
+        assert json.loads(responses.calls[0].request.body) == {
+            "url": "https://example.com/hook",
+            "eventTypes": "LabelCreated,BatchCompleted",
+        }
+
+    @responses.activate
+    def test_create_without_events_receives_every_event(self, client):
+        responses.add(responses.POST, f"{BASE_URL}/api/workspaces/{WS_ID}/webhooks", json={"success": True}, status=200)
+
+        client.webhooks.create("https://example.com/hook", description="orders")
+
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {"url": "https://example.com/hook", "description": "orders"}
+
+    @responses.activate
+    def test_update_sends_events_as_event_types(self, client):
+        responses.add(
+            responses.PUT, f"{BASE_URL}/api/workspaces/{WS_ID}/webhooks/wh-001", json={"success": True}, status=200
+        )
+
+        client.webhooks.update("wh-001", {"events": [WebhookEventType.LABEL_CANCELED], "status": "Active"})
+
+        assert json.loads(responses.calls[0].request.body) == {"eventTypes": "LabelCanceled", "status": "Active"}
+
+    @pytest.mark.parametrize("events", [["label.created"], ["LabelCreated", "ShipmentCreated"], []])
+    @responses.activate
+    def test_create_refuses_events_flexops_never_sends(self, client, events):
+        with pytest.raises(ValueError):
+            client.webhooks.create("https://example.com/hook", events)
+
+        assert len(responses.calls) == 0
+
+    @responses.activate
+    def test_update_refuses_events_flexops_never_sends(self, client):
+        with pytest.raises(ValueError):
+            client.webhooks.update("wh-001", {"events": ["label.created"]})
+
+        assert len(responses.calls) == 0
+
+    def test_create_refuses_a_single_string(self, client):
+        with pytest.raises(TypeError):
+            client.webhooks.create("https://example.com/hook", "LabelCreated")
+
+    def test_event_types_are_the_names_the_gateway_sends(self):
+        assert [event.value for event in WebhookEventType] == [
+            "LabelCreated",
+            "LabelCanceled",
+            "BatchCompleted",
+            "TrackingUpdated",
+            "TrackingDelivered",
+        ]
 
     @responses.activate
     def test_list_webhooks(self, client):

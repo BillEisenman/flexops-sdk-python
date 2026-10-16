@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from enum import IntEnum
+from enum import Enum, IntEnum
 from typing import Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict
@@ -383,18 +383,44 @@ class Order(_CamelModel):
 # ---------------------------------------------------------------------------
 
 
+class WebhookEventType(str, Enum):
+    """Event names FlexOps sends in ``X-FlexOps-Event`` and matches subscriptions against.
+
+    Names are PascalCase and matched exactly: a dotted name such as ``label.created`` matches
+    nothing. ``TRACKING_UPDATED`` and ``TRACKING_DELIVERED`` are sent only to workspaces in the
+    USPS push-tracking pilot.
+    """
+
+    LABEL_CREATED = "LabelCreated"
+    LABEL_CANCELED = "LabelCanceled"
+    BATCH_COMPLETED = "BatchCompleted"
+    TRACKING_UPDATED = "TrackingUpdated"
+    TRACKING_DELIVERED = "TrackingDelivered"
+
+
 class WebhookSubscription(_CamelModel):
+    """A webhook subscription as the Gateway returns it."""
+
     id: str
     url: str
-    events: list[str]
-    is_active: bool
-    secret: str
+    description: str | None = None
+    # Subscribed event names, comma-separated, or "*" for every event.
+    event_types: str
+    # "Active", "Paused" or "Disabled".
+    status: str
+    consecutive_failures: int = 0
     created_at: str
+    updated_at: str | None = None
+    # The whsec_... signing secret. Returned only when the subscription is created.
+    secret: str | None = None
 
 
 class CreateWebhookRequest(_CamelModel):
+    """The Gateway create body. ``event_types`` is comma-separated with no spaces; omit it for every event."""
+
     url: str
-    events: list[str]
+    description: str | None = None
+    event_types: str | None = None
 
 
 # ---------------------------------------------------------------------------

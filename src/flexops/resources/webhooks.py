@@ -12,9 +12,10 @@ import hashlib
 import hmac
 import re
 import time
-from typing import Any, Callable
+from typing import Any, Callable, Iterable
 
 from .._http import HttpClient
+from .._types import WebhookEventType
 
 DEFAULT_SIGNATURE_TOLERANCE_SECONDS = 300
 """Default maximum age, in seconds, of ``X-FlexOps-Timestamp`` accepted by ``verify_signature``."""
@@ -22,6 +23,30 @@ DEFAULT_SIGNATURE_TOLERANCE_SECONDS = 300
 _SIGNATURE_PREFIX = "sha256="
 _TIMESTAMP_RE = re.compile(r"[0-9]+")
 _HEX_DIGEST_RE = re.compile(r"[0-9a-f]{64}")
+_KNOWN_EVENTS = tuple(event.value for event in WebhookEventType)
+
+
+def _to_event_types(events: Iterable[WebhookEventType | str]) -> str:
+    """Joins event names into the Gateway's comma-separated ``eventTypes``.
+
+    The Gateway ignores an ``events`` field (subscribing to every event) and matches each name
+    exactly, so a name it never sends would leave the subscription silent; it is refused here.
+    """
+    if isinstance(events, str):
+        raise TypeError("events must be a list of event names, not a single string.")
+    names: list[str] = []
+    for event in events:
+        name = event.value if isinstance(event, WebhookEventType) else event
+        if name not in names:
+            names.append(name)
+    if not names:
+        raise ValueError("events must name at least one event; leave it out to receive every event.")
+    unknown = [name for name in names if name not in _KNOWN_EVENTS]
+    if unknown:
+        raise ValueError(
+            f"Unknown webhook event: {', '.join(map(str, unknown))}. FlexOps sends {', '.join(_KNOWN_EVENTS)}."
+        )
+    return ",".join(names)
 
 
 class WebhooksResource:
@@ -46,13 +71,42 @@ class WebhooksResource:
         """Get a webhook subscription by ID."""
         return self._http.get(self._ws_path(webhook_id))
 
-    def create(self, url: str, events: list[str]) -> dict[str, Any]:
-        """Create a webhook subscription."""
-        return self._http.post(self._ws_path(), {"url": url, "events": events})
+    def create(
+        self,
+        url: str,
+        events: Iterable[WebhookEventType | str] | None = None,
+        *,
+        description: str | None = None,
+    ) -> dict[str, Any]:
+        """Create a webhook subscription.
+
+        ``events`` lists the ``WebhookEventType`` names to receive; leave it out to receive every
+        event. It is sent as the Gateway's comma-separated ``eventTypes``.
+
+        Raises:
+            ValueError: ``events`` is empty or names an event FlexOps never sends.
+        """
+        body: dict[str, Any] = {"url": url}
+        if description is not None:
+            body["description"] = description
+        if events is not None:
+            body["eventTypes"] = _to_event_types(events)
+        return self._http.post(self._ws_path(), body)
 
     def update(self, webhook_id: str, data: dict[str, Any]) -> dict[str, Any]:
-        """Update a webhook subscription."""
-        return self._http.put(self._ws_path(webhook_id), data)
+        """Update a webhook subscription.
+
+        ``data`` takes ``url``, ``description``, ``status`` (``Active``, ``Paused`` or ``Disabled``)
+        and ``events``, a list of ``WebhookEventType`` names that replaces the subscribed events
+        and is sent as ``eventTypes``.
+
+        Raises:
+            ValueError: ``events`` is empty or names an event FlexOps never sends.
+        """
+        body = dict(data)
+        if "events" in body:
+            body["eventTypes"] = _to_event_types(body.pop("events"))
+        return self._http.put(self._ws_path(webhook_id), body)
 
     def delete(self, webhook_id: str) -> dict[str, Any]:
         """Delete a webhook subscription."""
