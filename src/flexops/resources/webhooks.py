@@ -10,9 +10,18 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import re
+import time
 from typing import Any, Callable
 
 from .._http import HttpClient
+
+DEFAULT_SIGNATURE_TOLERANCE_SECONDS = 300
+"""Default maximum age, in seconds, of ``X-FlexOps-Timestamp`` accepted by ``verify_signature``."""
+
+_SIGNATURE_PREFIX = "sha256="
+_TIMESTAMP_RE = re.compile(r"[0-9]+")
+_HEX_DIGEST_RE = re.compile(r"[0-9a-f]{64}")
 
 
 class WebhooksResource:
@@ -58,22 +67,69 @@ class WebhooksResource:
         return self._http.get(self._ws_path(f"{webhook_id}/deliveries"))
 
     @staticmethod
-    def verify_signature(payload: str, signature: str, secret: str) -> bool:
-        """Verify a webhook signature from an incoming request.
+    def verify_signature(
+        payload: str | bytes | bytearray,
+        signature: str | None,
+        secret: str,
+        *,
+        timestamp: str | None,
+        tolerance: float = DEFAULT_SIGNATURE_TOLERANCE_SECONDS,
+        now: float | None = None,
+    ) -> bool:
+        """Verify that an incoming request is a genuine FlexOps webhook delivery.
 
-        Use this in your webhook handler to validate authenticity.
+        FlexOps signs ``{X-FlexOps-Timestamp}.{raw body}`` with HMAC-SHA256, keyed with the
+        subscription secret (the whole ``whsec_...`` string), and sends
+        ``X-FlexOps-Signature: sha256=<lowercase hex>``.
 
         Args:
-            payload: The raw request body as a string.
-            signature: The ``X-FlexOps-Signature`` header value (hex-encoded).
+            payload: The raw request body exactly as received, as bytes or a string. Do not pass
+                re-serialized JSON; it will not reproduce the signed bytes.
+            signature: The ``X-FlexOps-Signature`` header. ``sha256=<hex>`` and bare ``<hex>``
+                are accepted.
             secret: Your webhook signing secret.
+            timestamp: The ``X-FlexOps-Timestamp`` header (Unix seconds). Keyword-only and required.
+            tolerance: Maximum distance in seconds between ``timestamp`` and now, in either
+                direction. Defaults to 300.
+            now: The current time in Unix seconds. Defaults to ``time.time()``; set it in tests.
 
         Returns:
-            ``True`` if the signature is valid, ``False`` otherwise.
+            ``True`` only when the signature matches and the timestamp is within tolerance.
+            A missing, malformed or wrong-length signature, or a missing, non-numeric or
+            out-of-tolerance timestamp, returns ``False``.
+
+        Raises:
+            ValueError: If ``secret`` is empty or ``tolerance`` is negative.
+            TypeError: If ``payload`` is not bytes or a string.
         """
-        expected = hmac.new(
-            secret.encode("utf-8"),
-            payload.encode("utf-8"),
-            hashlib.sha256,
-        ).hexdigest()
-        return hmac.compare_digest(signature, expected)
+        if not isinstance(secret, str) or not secret:
+            raise ValueError("A webhook signing secret is required.")
+        if isinstance(payload, str):
+            body = payload.encode("utf-8")
+        elif isinstance(payload, (bytes, bytearray)):
+            body = bytes(payload)
+        else:
+            raise TypeError("payload must be the raw request body as bytes or a string.")
+        if not tolerance >= 0:
+            raise ValueError("tolerance must be a non-negative number of seconds.")
+
+        if not isinstance(signature, str) or not isinstance(timestamp, str):
+            return False
+
+        ts = timestamp.strip()
+        if not _TIMESTAMP_RE.fullmatch(ts):
+            return False
+        current = time.time() if now is None else now
+        # Compares int with float exactly (no overflow on huge values); a NaN clock fails closed.
+        if not (current - tolerance <= int(ts) <= current + tolerance):
+            return False
+
+        provided = signature.strip()
+        if provided[: len(_SIGNATURE_PREFIX)].lower() == _SIGNATURE_PREFIX:
+            provided = provided[len(_SIGNATURE_PREFIX) :]
+        provided = provided.lower()
+        if not _HEX_DIGEST_RE.fullmatch(provided):
+            return False
+
+        expected = hmac.new(secret.encode("utf-8"), ts.encode("ascii") + b"." + body, hashlib.sha256).hexdigest()
+        return hmac.compare_digest(provided.encode("ascii"), expected.encode("ascii"))
