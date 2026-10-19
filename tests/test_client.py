@@ -28,27 +28,23 @@ class TestClientInitialization:
         client.workspace_id = "ws-new-001"
         assert client.workspace_id == "ws-new-001"
 
-    def test_has_all_15_resource_properties(self):
+    def test_exposes_the_documented_resources(self):
         client = FlexOps(base_url="http://localhost:5000")
-        assert client.auth is not None
-        assert client.workspaces is not None
-        assert client.shipping is not None
-        assert client.carriers is not None
-        assert client.webhooks is not None
-        assert client.wallet is not None
-        assert client.insurance is not None
-        assert client.returns is not None
-        assert client.api_keys is not None
-        assert client.analytics is not None
-        assert client.orders is not None
-        assert client.inventory is not None
-        assert client.pickups is not None
-        assert client.scan_forms is not None
-        assert client.rules is not None
+        for name in ("auth", "workspaces", "shipping", "carriers", "webhooks", "wallet", "insurance", "returns",
+                     "analytics", "orders", "inventory", "pickups", "scan_forms", "rules", "carbon_offsets",
+                     "recurring_shipments", "report_schedules", "email_templates",
+                     "hs_codes"):
+            assert getattr(client, name) is not None, name
+
+    def test_portal_only_resources_are_gone(self):
+        client = FlexOps(base_url="http://localhost:5000")
+        # reports was renamed report_schedules.
+        for name in ("api_keys", "reports", "offsets"):
+            assert not hasattr(client, name), name
 
     def test_carrier_sub_resources(self):
         client = FlexOps(base_url="http://localhost:5000")
         assert client.carriers.usps is not None
         assert client.carriers.ups is not None
-        assert client.carriers.fedex is not None
         assert client.carriers.dhl is not None
+        assert client.carriers.fedex is not None

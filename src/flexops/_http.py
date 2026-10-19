@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import random
 import time
+import uuid
 from typing import Any
 
 import requests
@@ -20,6 +21,11 @@ from ._types import FlexOpsConfig, RetryConfig
 _DEFAULT_BASE_URL = "https://gateway.flexops.io"
 _DEFAULT_TIMEOUT = 30.0
 _DEFAULT_RETRY = RetryConfig()
+_WRITE_METHODS = frozenset({"POST", "PUT", "PATCH"})
+# Statuses where a keyed write either never ran or is replayed by the Gateway for the same key.
+_WRITE_RETRYABLE_STATUSES = frozenset({502, 503, 504})
+# The Gateway's 409 while the first request with the same Idempotency-Key is still running.
+_IDEMPOTENCY_CONFLICT = "IDEMPOTENCY_CONFLICT"
 
 
 class HttpClient:
@@ -34,6 +40,11 @@ class HttpClient:
         self._api_key = config.api_key
         self._session = requests.Session()
 
+    @property
+    def access_token(self) -> str | None:
+        """The bearer token sent when no API key is set."""
+        return self._access_token
+
     def set_access_token(self, token: str) -> None:
         self._access_token = token
 
@@ -42,8 +53,9 @@ class HttpClient:
 
     # -- Convenience methods ------------------------------------------------
 
-    def get(self, path: str, query: dict[str, Any] | None = None) -> Any:
-        return self.request("GET", path, query=query)
+    def get(self, path: str, query: dict[str, Any] | None = None,
+            *, headers: dict[str, str] | None = None) -> Any:
+        return self.request("GET", path, query=query, headers=headers)
 
     def post(self, path: str, body: Any = None, query: dict[str, Any] | None = None,
              *, headers: dict[str, str] | None = None) -> Any:
@@ -70,8 +82,20 @@ class HttpClient:
         headers: dict[str, str] | None = None,
         timeout: float | None = None,
     ) -> Any:
+        """Send a request, retrying only where repeating it is safe.
+
+        Every POST, PUT and PATCH carries an ``Idempotency-Key`` (the caller's, else one generated
+        for this call) that is reused on every retry, so the Gateway replays a write it already
+        finished instead of running it, and charging the wallet, again.
+
+        Returns the decoded JSON, the raw bytes of a non-JSON body, or ``None`` for a 2xx with no
+        body (204 or ``Content-Length: 0``).
+        """
+        verb = method.upper()
         url = self._build_url(path)
         req_headers = self._build_headers(headers)
+        if verb in _WRITE_METHODS and not any(k.lower() == "idempotency-key" for k in req_headers):
+            req_headers["Idempotency-Key"] = str(uuid.uuid4())
         effective_timeout = timeout or self._timeout
         params = self._clean_query(query)
 
@@ -93,12 +117,14 @@ class HttpClient:
                 )
 
                 if resp.ok:
+                    if resp.status_code == 204 or resp.headers.get("content-length") == "0":
+                        return None
                     content_type = resp.headers.get("content-type", "")
                     if "application/json" in content_type:
                         return resp.json()
                     return resp.content
 
-                # Rate limited
+                # Rate limited: the request was refused before it ran, so any method may retry.
                 if resp.status_code == 429:
                     retry_after = int(resp.headers.get("retry-after", "0"))
                     last_error = FlexOpsRateLimitError(
@@ -120,21 +146,18 @@ class HttpClient:
                 except Exception:
                     pass
 
+                code = error_body.get("errorCode") or error_body.get("code")
                 error = FlexOpsError(
                     error_body.get("message", f"HTTP {resp.status_code}: {resp.reason}"),
                     status=resp.status_code,
-                    code=(
-                        error_body.get("errorCode")
-                        or error_body.get("code")
-                        or ("FORBIDDEN" if resp.status_code == 403 else None)
-                    ),
+                    code=code or ("FORBIDDEN" if resp.status_code == 403 else None),
                     errors=error_body.get("errors"),
                 )
 
                 if resp.status_code == 403:
                     raise error
 
-                if resp.status_code in self._retry.retryable_status_codes:
+                if self._is_retryable(verb, resp.status_code, code):
                     last_error = error
                     continue
 
@@ -148,16 +171,35 @@ class HttpClient:
                     status=0,
                     code="TIMEOUT",
                 )
+                # The Gateway may have run a timed-out or dropped request. GETs and keyed writes are
+                # safe to send again; a DELETE is not covered by the idempotency middleware.
+                if verb == "DELETE":
+                    raise last_error
                 if attempt < self._retry.max_retries:
                     continue
             except requests.RequestException as exc:
                 last_error = FlexOpsError(str(exc), status=0, code="CONNECTION_ERROR")
+                if verb == "DELETE":
+                    raise last_error from exc
                 if attempt < self._retry.max_retries:
                     continue
 
         raise last_error or FlexOpsError("Request failed after retries", status=0, code="RETRY_EXHAUSTED")
 
     # -- Helpers ------------------------------------------------------------
+
+    def _is_retryable(self, verb: str, status: int, code: str | None) -> bool:
+        """GETs retry on every configured status. A write retries only where the Gateway either did
+        not run it or will replay it for the same Idempotency-Key: never after a 500, whose response
+        the Gateway does not cache, so a retry would run the write again. A DELETE retries only on 429.
+        """
+        if verb in ("GET", "HEAD"):
+            return status in self._retry.retryable_status_codes
+        if verb == "DELETE":
+            return False
+        if status == 409:
+            return code == _IDEMPOTENCY_CONFLICT
+        return status in _WRITE_RETRYABLE_STATUSES and status in self._retry.retryable_status_codes
 
     def _build_url(self, path: str) -> str:
         if not path.startswith("/"):

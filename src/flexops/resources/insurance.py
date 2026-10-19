@@ -30,10 +30,19 @@ class InsuranceResource:
         """Get available insurance providers for this workspace."""
         return self._http.get(self._ws_path("providers"))
 
-    def get_quote(self, *, carrier: str, declared_value: float, provider: str | None = None) -> dict[str, Any]:
+    def get_quote(
+        self,
+        *,
+        carrier_code: str,
+        declared_value: float,
+        tracking_number: str | None = None,
+        provider: str | None = None,
+    ) -> dict[str, Any]:
         """Get an insurance quote."""
-        body: dict[str, Any] = {"carrier": carrier, "declaredValue": declared_value}
-        if provider:
+        body: dict[str, Any] = {"declaredValue": declared_value, "carrierCode": carrier_code}
+        if tracking_number is not None:
+            body["trackingNumber"] = tracking_number
+        if provider is not None:
             body["provider"] = provider
         return self._http.post(self._ws_path("quote"), body)
 
@@ -41,27 +50,43 @@ class InsuranceResource:
         self,
         *,
         tracking_number: str,
-        carrier: str,
+        carrier_code: str,
         declared_value: float,
+        coverage_tier: str | None = None,
         provider: str | None = None,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
-        """Purchase insurance for a shipment."""
+        """Purchase insurance for a shipment. The premium is charged to the workspace wallet.
+
+        Pass an ``idempotency_key`` you persist with the purchase to keep a retry after an uncertain
+        outcome from buying a second policy; without one the SDK generates a key per call.
+        """
         body: dict[str, Any] = {
             "trackingNumber": tracking_number,
-            "carrier": carrier,
+            "carrierCode": carrier_code,
             "declaredValue": declared_value,
         }
-        if provider:
+        if coverage_tier is not None:
+            body["coverageTier"] = coverage_tier
+        if provider is not None:
             body["provider"] = provider
-        return self._http.post(self._ws_path("purchase"), body)
+        headers = {"Idempotency-Key": idempotency_key} if idempotency_key is not None else None
+        return self._http.post(self._ws_path("policies"), body, headers=headers)
 
     def void(self, policy_id: str) -> dict[str, Any]:
         """Void an insurance policy."""
         return self._http.delete(self._ws_path(f"policies/{policy_id}"))
 
-    def file_claim(self, policy_id: str, *, description: str, claim_amount: float) -> dict[str, Any]:
-        """File an insurance claim."""
-        return self._http.post(
-            self._ws_path(f"policies/{policy_id}/claims"),
-            {"description": description, "claimAmount": claim_amount},
-        )
+    def file_claim(
+        self,
+        policy_id: str,
+        *,
+        claim_reason: str,
+        claim_amount: float,
+        evidence_json: str | None = None,
+    ) -> dict[str, Any]:
+        """File a claim against a policy."""
+        body: dict[str, Any] = {"policyId": policy_id, "claimReason": claim_reason, "claimAmount": claim_amount}
+        if evidence_json is not None:
+            body["evidenceJson"] = evidence_json
+        return self._http.post(self._ws_path("claims"), body)

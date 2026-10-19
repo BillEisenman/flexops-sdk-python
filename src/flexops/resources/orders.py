@@ -14,7 +14,7 @@ from .._http import HttpClient
 
 
 class OrdersResource:
-    """Order management via VisionSuite API proxy."""
+    """Order reads via the legacy VisionSuite API proxy (read-only: the proxy refuses API-key writes)."""
 
     def __init__(self, http: HttpClient) -> None:
         self._http = http
@@ -22,10 +22,6 @@ class OrdersResource:
     @staticmethod
     def _path(endpoint: str) -> str:
         return f"/api/ApiProxy/api/v1/Order/{endpoint}"
-
-    def create(self, order: Any) -> dict[str, Any]:
-        """Create a new order."""
-        return self._http.post(self._path("postNewOrder"), order)
 
     def get_new_orders(self, params: dict[str, str] | None = None) -> dict[str, Any]:
         """Get new orders awaiting processing."""
@@ -46,10 +42,6 @@ class OrdersResource:
     def get_status(self, order_number: str) -> dict[str, Any]:
         """Get order status by order number."""
         return self._http.get(self._path("getIndividualOrderStatusByOrderNumber"), {"orderNumber": order_number})
-
-    def cancel(self, order_number: str) -> dict[str, Any]:
-        """Cancel an order."""
-        return self._http.post(self._path("cancelOrderByOrderNumber"), {"orderNumber": order_number})
 
     def get_items(self, order_number: str) -> dict[str, Any]:
         """Get all items for an order."""

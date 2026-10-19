@@ -36,17 +36,38 @@ class RulesResource:
         return self._http.get(self._ws_path(rule_id))
 
     def create(self, rule: dict[str, Any]) -> dict[str, Any]:
-        """Create a shipping rule."""
+        """Create a shipping rule.
+
+        ``rule`` is ``{"name", "priority", "isEnabled", "warehouseId"?, "conditions", "actions"}``; each
+        condition is ``{"field", "operator", "value", "group"?}`` and each action ``{"type", "value"}``.
+        """
         return self._http.post(self._ws_path(), rule)
 
     def update(self, rule_id: str, rule: dict[str, Any]) -> dict[str, Any]:
-        """Update a shipping rule."""
+        """Update a shipping rule. ``rule`` takes the fields of ``create``; the ones left out are kept."""
         return self._http.put(self._ws_path(rule_id), rule)
 
     def delete(self, rule_id: str) -> dict[str, Any]:
         """Delete a shipping rule."""
         return self._http.delete(self._ws_path(rule_id))
 
-    def reorder(self, rule_ids: list[str]) -> dict[str, Any]:
-        """Reorder rules (set priority)."""
-        return self._http.put(self._ws_path("reorder"), {"ruleIds": rule_ids})
+    def reorder(self, rules: list[str] | list[dict[str, Any]]) -> dict[str, Any]:
+        """Set rule priorities.
+
+        Pass ``[{"ruleId", "priority"}, ...]``, or rule IDs in evaluation order, which are given
+        priorities 0, 1, 2 and so on (lower is evaluated first).
+        """
+        items = [
+            rule if isinstance(rule, dict) else {"ruleId": rule, "priority": index}
+            for index, rule in enumerate(rules)
+        ]
+        return self._http.post(self._ws_path("reorder"), {"rules": items})
+
+    def test(self, request: dict[str, Any]) -> dict[str, Any]:
+        """Dry-run the workspace's rules against a sample shipment and trace which one wins.
+
+        ``request`` is the Gateway ``TestShippingRuleRequest``: ``destinationCountry`` plus optional
+        ``weightOz``, ``declaredValue``, ``destinationState``, ``destinationPostalCode``,
+        ``orderSource``, ``itemCount``, ``shipMethod``, ``destinationZone`` and ``tags``.
+        """
+        return self._http.post(self._ws_path("test"), request)

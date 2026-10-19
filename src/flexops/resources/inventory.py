@@ -14,14 +14,10 @@ from .._http import HttpClient
 
 
 class InventoryResource:
-    """Inventory management via VisionSuite API proxy."""
+    """Inventory reads via the legacy VisionSuite API proxy (read-only: the proxy refuses API-key writes)."""
 
     def __init__(self, http: HttpClient) -> None:
         self._http = http
-
-    def post_asn_receipt(self, receipt: Any) -> dict[str, Any]:
-        """Post a new ASN (Advance Shipment Notice) receipt."""
-        return self._http.post("/api/ApiProxy/api/v1/Inventory/postNewAsnReceipt", receipt)
 
     def get_warehouse_snapshot(self, params: dict[str, str] | None = None) -> dict[str, Any]:
         """Get a warehouse inventory snapshot."""
@@ -34,7 +30,3 @@ class InventoryResource:
     def get_part_numbers(self, params: dict[str, str] | None = None) -> dict[str, Any]:
         """Get the list of all part numbers."""
         return self._http.get("/api/ApiProxy/api/v1/Inventory/getPartNumberList", params)
-
-    def update_inventory(self, data: Any) -> dict[str, Any]:
-        """Update customer inventory (V2)."""
-        return self._http.post("/api/ApiProxy/api/v2/Inventory/postCustomerInventoryUpdate", data)

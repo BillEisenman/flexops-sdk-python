@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 from enum import Enum, IntEnum
-from typing import Generic, Literal, TypeVar
+from typing import Any, Generic, Literal, TypeVar
 
 from pydantic import BaseModel, ConfigDict
 from pydantic.alias_generators import to_camel
@@ -75,18 +75,19 @@ class LoginRequest(_CamelModel):
 
 
 class LoginResponse(_CamelModel):
-    access_token: str
-    refresh_token: str
+    """The ``data`` of ``auth.login()`` and ``auth.refresh_token()``. ``token`` is the access token."""
+
+    token: str | None = None
+    refresh_token: str | None = None
     expires_at: str
     user_id: str
-
-
-class RegisterRequest(_CamelModel):
     email: str
-    password: str
     first_name: str
     last_name: str
-    company_name: str | None = None
+    roles: list[str] = []
+    requires_two_factor: bool = False
+    two_factor_token: str | None = None
+    two_factor_method: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -94,29 +95,77 @@ class RegisterRequest(_CamelModel):
 # ---------------------------------------------------------------------------
 
 
-class Workspace(_CamelModel):
+class WorkspaceRole(IntEnum):
+    """A member's role, sent and returned as the Gateway ``WorkspaceRole`` number."""
+
+    OWNER = 0
+    ADMIN = 1
+    MEMBER = 2
+    # A store merchant in a workspace another party (such as a 3PL) operates.
+    MERCHANT = 3
+
+
+class WorkspaceSummary(_CamelModel):
+    """One entry of ``workspaces.list()``."""
+
     id: str
     name: str
     slug: str
+    my_role: int
     plan_id: str
-    owner_id: str
-    is_active: bool
+    member_count: int
+    is_creator: bool
+    product_type: str | None = None
+    entitlements: list[Any] = []
+
+
+class Workspace(_CamelModel):
+    """The ``data`` of ``workspaces.get()``. Status fields are Gateway enum numbers."""
+
+    id: str
+    name: str
+    slug: str
+    domain: str | None = None
+    plan_id: str
+    status: int
+    subscription_status: int
+    user_limit: int
+    current_user_count: int
     monthly_label_limit: int
     labels_used_this_month: int
-    user_limit: int
+    is_trialing: bool
+    trial_expires_at: str | None = None
+    my_role: int
+    can_manage_members: bool
+    can_manage_billing: bool
     created_at: str
-
-
-class CreateWorkspaceRequest(_CamelModel):
-    name: str
-    plan_id: str | None = None
+    entitlements: list[Any] = []
 
 
 class WorkspaceMember(_CamelModel):
+    """A member in ``workspaces.list_members()``. ``role`` is a ``WorkspaceRole`` number."""
+
+    membership_id: str
     user_id: str
     email: str
-    role: Literal["Owner", "Admin", "Member", "Guest"]
+    name: str | None = None
+    role: int
+    status: int
     joined_at: str
+    is_creator: bool
+    is_deactivated: bool
+    store_scope: int
+    store_connection_ids: list[str] = []
+
+
+class WorkspaceMemberList(_CamelModel):
+    """The ``data`` of ``workspaces.list_members()``: members and pending invites, not a bare list."""
+
+    members: list[WorkspaceMember]
+    pending_invites: list[dict[str, Any]] = []
+    user_limit: int
+    active_count: int
+    can_invite_more: bool
 
 
 # ---------------------------------------------------------------------------
@@ -304,10 +353,28 @@ class TrackingInfo(_CamelModel):
 # ---------------------------------------------------------------------------
 
 
+class SuggestedAddress(_CamelModel):
+    line1: str
+    line2: str | None = None
+    city: str
+    state: str
+    postal_code: str
+    country: str
+
+
 class AddressValidationResult(_CamelModel):
+    """The Gateway result of ``shipping.validate_address``.
+
+    ``validation_unavailable`` means no carrier could check the address; it is not a rejection.
+    """
+
     is_valid: bool
-    corrected_address: Address | None = None
-    messages: list[str] | None = None
+    suggested_address: SuggestedAddress | None = None
+    is_residential: bool | None = None
+    warnings: list[str] = []
+    validated_by: str | None = None
+    validation_unavailable: bool = False
+    checked_at: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -429,11 +496,11 @@ class CreateWebhookRequest(_CamelModel):
 
 
 class WalletBalance(_CamelModel):
+    """The bare response of ``wallet.get_balance()``."""
+
+    has_wallet: bool
+    balance_cents: int
     balance: float
-    currency: str
-    auto_reload_enabled: bool
-    auto_reload_threshold: float | None = None
-    auto_reload_amount: float | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -442,19 +509,34 @@ class WalletBalance(_CamelModel):
 
 
 class InsuranceQuote(_CamelModel):
-    provider: str
+    """The ``data`` of ``insurance.get_quote()``."""
+
+    declared_value: float
+    coverage_amount: float
     premium: float
-    coverage: float
-    currency: str
+    coverage_tier: str
+    carrier_code: str
+    coverage_days: int = 30
+    provider: str
 
 
 class InsurancePolicy(_CamelModel):
+    """The ``data`` of ``insurance.purchase()`` and ``insurance.void()``."""
+
     policy_id: str
-    provider: str
     tracking_number: str
-    coverage: float
+    carrier_code: str
+    declared_value: float
+    coverage_amount: float
     premium: float
     status: str
+    coverage_tier: str | None = None
+    purchased_at: str
+    expires_at: str
+    cancelled_at: str | None = None
+    provider: str | None = None
+    provider_reference: str | None = None
+    is_sandbox: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -469,9 +551,15 @@ class ReturnItem(_CamelModel):
 
 
 class ReturnRequest(_CamelModel):
-    order_id: str
+    """The Gateway ``CreateRmaRequest`` body of ``returns.create``."""
+
+    order_id: int
+    order_number: str | None = None
     reason: str
     items: list[ReturnItem]
+    notes: str | None = None
+    customer_email: str | None = None
+    reason_id: int | None = None
 
 
 class ReturnAuthorization(_CamelModel):
@@ -479,34 +567,6 @@ class ReturnAuthorization(_CamelModel):
     status: str
     return_label: Label | None = None
     created_at: str
-
-
-# ---------------------------------------------------------------------------
-# API Keys
-# ---------------------------------------------------------------------------
-
-
-class ApiKeyInfo(_CamelModel):
-    id: str
-    name: str
-    prefix: str
-    scopes: list[str]
-    last_used_at: str | None = None
-    expires_at: str | None = None
-    created_at: str
-
-
-class CreateApiKeyRequest(_CamelModel):
-    name: str
-    scopes: list[str] | None = None
-    expires_in_days: int | None = None
-
-
-class CreateApiKeyResponse(_CamelModel):
-    id: str
-    key: str
-    name: str
-    prefix: str
 
 
 # ---------------------------------------------------------------------------
@@ -547,10 +607,50 @@ class RuleAction(_CamelModel):
 class ShippingRule(_CamelModel):
     id: str
     name: str
-    is_active: bool
     priority: int
+    is_enabled: bool
+    warehouse_id: str | None = None
     conditions: list[RuleCondition]
     actions: list[RuleAction]
+
+
+# ---------------------------------------------------------------------------
+# Recurring Shipments, Report Schedules, Email Templates
+# ---------------------------------------------------------------------------
+
+
+class RecurrenceInterval(IntEnum):
+    """How often a recurring shipment runs. ``CUSTOM`` uses ``cronExpression``."""
+
+    DAILY = 0
+    WEEKLY = 1
+    BIWEEKLY = 2
+    MONTHLY = 3
+    CUSTOM = 4
+
+
+class ReportFormat(IntEnum):
+    CSV = 0
+    JSON = 1
+
+
+class ReportFrequency(IntEnum):
+    """``WEEKLY`` uses ``dayOfWeek`` (Sunday 0); ``MONTHLY`` uses ``dayOfMonth`` (1-28)."""
+
+    DAILY = 0
+    WEEKLY = 1
+    MONTHLY = 2
+
+
+class TrackingEmailEvent(IntEnum):
+    """The tracking event an email template is sent for."""
+
+    LABEL_CREATED = 0
+    IN_TRANSIT = 1
+    OUT_FOR_DELIVERY = 2
+    DELIVERED = 3
+    EXCEPTION = 4
+    RETURN_TO_SENDER = 5
 
 
 # ---------------------------------------------------------------------------
@@ -559,13 +659,22 @@ class ShippingRule(_CamelModel):
 
 
 class PickupRequest(_CamelModel):
-    carrier: str
+    """The Gateway ``SchedulePickupRequest`` body of ``pickups.schedule``."""
+
+    carrier_code: str
     pickup_date: str
-    ready_time: str
-    close_time: str
-    address: Address
-    package_count: int
-    total_weight: float
+    street: str
+    city: str
+    state: str
+    postal_code: str
+    country: str | None = None
+    package_count: int = 1
+    total_weight_oz: float | None = None
+    special_instructions: str | None = None
+    ready_time: str | None = None
+    close_time: str | None = None
+    contact_name: str | None = None
+    contact_phone: str | None = None
 
 
 class PickupConfirmation(_CamelModel):

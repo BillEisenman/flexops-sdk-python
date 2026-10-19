@@ -11,18 +11,17 @@ from __future__ import annotations
 from ._http import HttpClient
 from ._types import FlexOpsConfig
 from .resources.analytics import AnalyticsResource
-from .resources.api_keys import ApiKeysResource
 from .resources.auth import AuthResource
+from .resources.carbon_offsets import CarbonOffsetsResource
 from .resources.carriers import CarriersResource
 from .resources.email_templates import EmailTemplatesResource
 from .resources.hs_codes import HsCodesResource
 from .resources.insurance import InsuranceResource
 from .resources.inventory import InventoryResource
-from .resources.offsets import OffsetsResource
 from .resources.orders import OrdersResource
 from .resources.pickups import PickupsResource
 from .resources.recurring_shipments import RecurringShipmentsResource
-from .resources.reports import ReportsResource
+from .resources.report_schedules import ReportSchedulesResource
 from .resources.returns import ReturnsResource
 from .resources.rules import RulesResource
 from .resources.scan_forms import ScanFormsResource
@@ -61,13 +60,10 @@ class FlexOps:
         client = FlexOps(base_url="https://gateway.flexops.io")
         client.auth.login("user@co.com", "password")
 
-    Example - Direct carrier operations::
+    Example - Carrier-specific reads::
 
-        # USPS domestic label
-        label = client.carriers.usps.create_domestic_label({...})
-
-        # FedEx rate quote
-        rates = client.carriers.fedex.get_rates({...})
+        # USPS city/state lookup
+        info = client.carriers.usps.city_state_lookup("10001")
     """
 
     def __init__(
@@ -105,18 +101,17 @@ class FlexOps:
         self.wallet = WalletResource(self._http, get_ws_id)
         self.insurance = InsuranceResource(self._http, get_ws_id)
         self.returns = ReturnsResource(self._http, get_ws_id)
-        self.api_keys = ApiKeysResource(self._http, get_ws_id)
         self.analytics = AnalyticsResource(self._http)
         self.orders = OrdersResource(self._http)
         self.inventory = InventoryResource(self._http)
         self.pickups = PickupsResource(self._http, get_ws_id)
         self.scan_forms = ScanFormsResource(self._http, get_ws_id)
         self.rules = RulesResource(self._http, get_ws_id)
-        self.offsets = OffsetsResource(self._http, get_ws_id)
-        self.hs_codes = HsCodesResource(self._http, get_ws_id)
+        self.carbon_offsets = CarbonOffsetsResource(self._http, get_ws_id)
+        self.hs_codes = HsCodesResource(self._http)
         self.recurring_shipments = RecurringShipmentsResource(self._http, get_ws_id)
+        self.report_schedules = ReportSchedulesResource(self._http, get_ws_id)
         self.email_templates = EmailTemplatesResource(self._http, get_ws_id)
-        self.reports = ReportsResource(self._http, get_ws_id)
 
     @property
     def workspace_id(self) -> str | None:
