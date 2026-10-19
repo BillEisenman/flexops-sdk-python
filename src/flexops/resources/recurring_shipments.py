@@ -1,7 +1,7 @@
 # ***********************************************************************
 # Package          : flexops
 # Author           : FlexOps, LLC
-# Created          : 2026-03-31
+# Created          : 2026-10-19
 #
 # Copyright (c) 2021-2026 by FlexOps, LLC. All rights reserved.
 # ***********************************************************************
@@ -14,7 +14,15 @@ from .._http import HttpClient
 
 
 class RecurringShipmentsResource:
-    """Recurring shipment schedule management."""
+    """Recurring shipment schedules: each run ships the preset's package to the schedule's address.
+
+    Reads work with any API key or a user token. Writes need a user token (``auth.login``) or an API
+    key granted the ``recurring-shipments:write`` scope; a key without it gets 403 ``API_KEY_SCOPE_REQUIRED``
+    naming ``requiredScopes``.
+
+    Responses are bare JSON, not the ``{"success", "data"}`` envelope. ``interval`` is a
+    ``RecurrenceInterval`` number; ``CUSTOM`` uses ``cronExpression``.
+    """
 
     def __init__(self, http: HttpClient, get_workspace_id: Callable[[], str | None]) -> None:
         self._http = http
@@ -27,47 +35,50 @@ class RecurringShipmentsResource:
         base = f"/api/workspaces/{ws_id}/recurring-shipments"
         return f"{base}/{suffix}" if suffix else base
 
-    def list(
-        self,
-        *,
-        page: int | None = None,
-        page_size: int | None = None,
-        is_active: bool | None = None,
-    ) -> dict[str, Any]:
-        """List all recurring shipment schedules."""
-        query: dict[str, Any] = {}
-        if page is not None:
-            query["page"] = page
-        if page_size is not None:
-            query["pageSize"] = page_size
-        if is_active is not None:
-            query["isActive"] = is_active
-        return self._http.get(self._ws_path(), query or None)
+    def list(self) -> list[dict[str, Any]]:
+        """List the workspace's recurring shipments."""
+        return self._http.get(self._ws_path())
 
     def get(self, id: str) -> dict[str, Any]:
-        """Get a recurring shipment schedule by ID."""
+        """Get a recurring shipment. A missing one is 404."""
         return self._http.get(self._ws_path(id))
 
     def create(self, request: dict[str, Any]) -> dict[str, Any]:
-        """Create a new recurring shipment schedule."""
+        """Create a recurring shipment (201).
+
+        ``request`` is the Gateway ``CreateRecurringShipmentRequest``: ``name`` and ``firstRunUtc``
+        (ISO 8601) are required; ``interval`` (``RecurrenceInterval``), ``presetId``, ``addressId``,
+        ``cronExpression`` and ``maxFailures`` (1-100, default 3) are optional. A run needs an
+        ``addressId``; the preset supplies the package and service.
+        """
         return self._http.post(self._ws_path(), request)
 
     def update(self, id: str, request: dict[str, Any]) -> dict[str, Any]:
-        """Update an existing recurring shipment schedule."""
+        """Update a recurring shipment.
+
+        Every field is optional: ``name``, ``presetId``, ``addressId``, ``interval``,
+        ``cronExpression``, ``maxFailures``.
+        """
         return self._http.put(self._ws_path(id), request)
 
-    def delete(self, id: str) -> dict[str, Any]:
-        """Delete a recurring shipment schedule."""
+    def delete(self, id: str) -> None:
+        """Delete a recurring shipment (204)."""
         return self._http.delete(self._ws_path(id))
 
-    def pause(self, id: str) -> dict[str, Any]:
-        """Pause an active recurring shipment schedule."""
+    def pause(self, id: str) -> None:
+        """Pause a recurring shipment (204)."""
         return self._http.post(self._ws_path(f"{id}/pause"))
 
-    def resume(self, id: str) -> dict[str, Any]:
-        """Resume a paused recurring shipment schedule."""
+    def resume(self, id: str) -> None:
+        """Resume a paused recurring shipment (204)."""
         return self._http.post(self._ws_path(f"{id}/resume"))
 
-    def trigger(self, id: str) -> dict[str, Any]:
-        """Manually trigger an immediate run of a recurring shipment schedule."""
-        return self._http.post(self._ws_path(f"{id}/trigger"))
+    def trigger(self, id: str, *, idempotency_key: str | None = None) -> None:
+        """Run a recurring shipment now, creating an order (204).
+
+        The Gateway refuses this when it cannot check the ``Idempotency-Key``. Pass an
+        ``idempotency_key`` you persist with the run to keep a later retry from creating a second
+        order; without one the SDK generates a key per call.
+        """
+        headers = {"Idempotency-Key": idempotency_key} if idempotency_key is not None else None
+        return self._http.post(self._ws_path(f"{id}/trigger"), headers=headers)

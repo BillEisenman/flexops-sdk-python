@@ -91,27 +91,78 @@ client.auth.login("user@example.com", "password")
 client.workspace_id = "ws_abc123"
 ```
 
-## Direct Carrier Operations
+## Carrier-Specific Operations
 
-Access carrier-specific endpoints when you need full control:
+`client.carriers` reaches USPS, UPS, FedEx and DHL through the legacy API proxy. The lookups (`GET`)
+work with an API key or a user token. The writes are deprecated: each call raises a
+`DeprecationWarning`, they need a user token (`auth.login`) because API keys get 403
+`API_KEY_SCOPE_REQUIRED`, and they stop working when the proxy is retired on 2027-06-30. The proxy's
+label-generation routes are closed (410 Gone) and are not offered.
+
+Native replacements: `client.shipping` (rates, labels, cancellation, tracking, address validation),
+`client.pickups` (carrier pickups), `client.scan_forms` (USPS scan forms) and `client.hs_codes`
+(landed cost).
 
 ```python
-# USPS domestic label
-label = client.carriers.usps.create_domestic_label({
-    "imageType": "PDF",
-    "mailClass": "PRIORITY_MAIL",
-    "weightInOunces": 16,
-    # ... full USPS payload
-})
-
-# FedEx rate quote
-rates = client.carriers.fedex.get_rates({...})
+# USPS city/state lookup (API key or user token)
+info = client.carriers.usps.city_state_lookup("10001")
 
 # UPS tracking
-info = client.carriers.ups.track({"trackingNumber": "1Z999AA10123456784"})
+events = client.carriers.ups.track({"trackingNumber": "1Z999AA10123456784"})
 
-# DHL shipment
-shipment = client.carriers.dhl.create_shipment({...})
+# Deprecated proxy write: user token only
+client.auth.login("user@example.com", "password")
+rates = client.carriers.fedex.get_rates({...})
+```
+
+## Recurring Shipments, Report Schedules and Email Templates
+
+Reads work with any API key or a user token. Writes need a user token or an API key granted the
+resource's scope: `recurring-shipments:write`, `report-schedules:write` or `email-templates:write`.
+A key without it gets 403 `API_KEY_SCOPE_REQUIRED` naming `requiredScopes`.
+
+```python
+from flexops import RecurrenceInterval, TrackingEmailEvent
+
+schedule = client.recurring_shipments.create({
+    "name": "Weekly restock", "interval": RecurrenceInterval.WEEKLY,
+    "presetId": preset_id, "addressId": address_id, "firstRunUtc": "2026-11-02T14:00:00Z",
+})
+client.email_templates.upsert({
+    "eventType": TrackingEmailEvent.DELIVERED,
+    "subjectTemplate": "Your order was delivered",
+    "htmlBodyTemplate": "<p>Tracking {{trackingNumber}} was delivered.</p>",
+})
+reports = client.report_schedules.list()["data"]  # report schedules use the envelope
+```
+
+## Retries and Idempotency
+
+Every `POST`, `PUT` and `PATCH` sends an `Idempotency-Key` header: the key you pass (for example
+`idempotency_key=` on `shipping.create_label`, `insurance.purchase`, `carbon_offsets.purchase` and
+`recurring_shipments.trigger`),
+or one the SDK generates for that call. The same key is sent on every retry of the call, so the
+Gateway replays a write it already finished instead of charging twice.
+
+- `GET` retries on a dropped connection, a timeout, 429, 500, 502, 503 and 504.
+- `POST`, `PUT` and `PATCH` retry on a dropped connection, a timeout, 429, 502, 503, 504 and 409
+  `IDEMPOTENCY_CONFLICT`, never on 500 (the Gateway does not replay a 500, so a retry would run the
+  write again).
+- A key reused with a different request gets 422 `IDEMPOTENCY_KEY_REUSED` and is not retried.
+- `DELETE` retries only on 429.
+
+A generated key lives only for one call. To retry a purchase later, after the call has returned,
+persist your own key with it and pass it again. A response with no body (204) returns `None`.
+
+## Workspace Roles
+
+Roles are sent as the Gateway numbers. Pass a `WorkspaceRole`, its name or its number:
+
+```python
+from flexops import WorkspaceRole
+
+client.workspaces.invite_member("ops@example.com", WorkspaceRole.ADMIN)  # or "Admin", or 1
+client.workspaces.update_member_role(user_id, "Member")
 ```
 
 ## Webhook Subscriptions
@@ -220,8 +271,8 @@ curl -X POST https://gateway.flexops.io/api/shipping/labels \
 curl https://gateway.flexops.io/api/shipping/track/9400111899223456789012 \
   -H "X-API-Key: fxk_live_..."
 
-# Cancel a label (via the unified carrier-agnostic endpoint)
-curl -X DELETE https://gateway.flexops.io/api/v3.0/shipping/Usps/cancel/9400111899223456789012 \
+# Cancel (void) a label
+curl -X DELETE "https://gateway.flexops.io/api/shipping/labels/{labelId}?carrierCode=USPS" \
   -H "X-API-Key: fxk_live_..."
 ```
 
@@ -231,21 +282,27 @@ Use an `fxk_test_...` key instead of `fxk_live_...` to hit the sandbox environme
 
 | Resource | Methods | Description |
 |----------|---------|-------------|
-| `client.auth` | 10 | Login, register, password management |
-| `client.workspaces` | 8 | Workspace CRUD, membership |
-| `client.shipping` | 12 | Rate shopping, labels, tracking, batch |
-| `client.carriers` | 76 | USPS, UPS, FedEx, DHL direct endpoints |
-| `client.webhooks` | 8 | Subscription CRUD, signature verification |
-| `client.wallet` | 4 | Balance, transactions, auto-reload |
-| `client.insurance` | 5 | Quotes, purchase, claims |
-| `client.returns` | 9 | RMA lifecycle management |
-| `client.api_keys` | 4 | Key creation, rotation, revocation |
-| `client.analytics` | 16 | Shipments, orders, carrier analytics |
-| `client.orders` | 12 | Order management |
-| `client.inventory` | 5 | Warehouse inventory |
+| `client.auth` | 3 | Login, token refresh, logout |
+| `client.workspaces` | 6 | Workspaces you belong to, membership |
+| `client.shipping` | 15 | Rate shopping, labels, tracking, address validation, batch |
+| `client.carriers` | 62 | USPS, UPS, FedEx and DHL via the legacy proxy (writes deprecated) |
+| `client.webhooks` | 8 | Subscription CRUD, test events, signature verification |
+| `client.wallet` | 1 | Balance |
+| `client.insurance` | 5 | Quotes, policies, claims |
+| `client.returns` | 5 | RMA creation, labels, receiving |
+| `client.analytics` | 15 | Shipments, orders, carrier analytics |
+| `client.orders` | 10 | Order reads |
+| `client.inventory` | 3 | Warehouse inventory reads |
 | `client.pickups` | 4 | Carrier pickup scheduling |
 | `client.scan_forms` | 3 | USPS scan forms |
-| `client.rules` | 6 | Shipping automation rules |
+| `client.rules` | 7 | Shipping automation rules |
+| `client.carbon_offsets` | 7 | Carbon offset quotes, purchases, settings |
+| `client.hs_codes` | 3 | HS code search and landed cost |
+| `client.recurring_shipments` | 8 | Recurring shipment schedules |
+| `client.report_schedules` | 6 | Scheduled reports |
+| `client.email_templates` | 5 | Shipment notification email templates |
+
+API keys, wallet funding and account management are portal features and are not part of the SDK.
 
 ## Configuration
 

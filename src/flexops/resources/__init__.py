@@ -7,13 +7,17 @@
 # ***********************************************************************
 
 from .analytics import AnalyticsResource
-from .api_keys import ApiKeysResource
 from .auth import AuthResource
+from .carbon_offsets import CarbonOffsetsResource
 from .carriers import CarriersResource
+from .email_templates import EmailTemplatesResource
+from .hs_codes import HsCodesResource
 from .insurance import InsuranceResource
 from .inventory import InventoryResource
 from .orders import OrdersResource
 from .pickups import PickupsResource
+from .recurring_shipments import RecurringShipmentsResource
+from .report_schedules import ReportSchedulesResource
 from .returns import ReturnsResource
 from .rules import RulesResource
 from .scan_forms import ScanFormsResource
@@ -24,13 +28,17 @@ from .workspaces import WorkspacesResource
 
 __all__ = [
     "AnalyticsResource",
-    "ApiKeysResource",
     "AuthResource",
+    "CarbonOffsetsResource",
     "CarriersResource",
+    "EmailTemplatesResource",
+    "HsCodesResource",
     "InsuranceResource",
     "InventoryResource",
     "OrdersResource",
     "PickupsResource",
+    "RecurringShipmentsResource",
+    "ReportSchedulesResource",
     "ReturnsResource",
     "RulesResource",
     "ScanFormsResource",

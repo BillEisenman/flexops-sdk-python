@@ -75,12 +75,19 @@ class ShippingResource:
     # -- Address Validation -------------------------------------------------
 
     def validate_address(self, address: dict[str, Any] | ShippingAddress | Address) -> dict[str, Any]:
-        """Validate and correct a shipping address.
+        """Validate a shipping address against the carriers' validation services.
 
-        Sends the Gateway ``AddressValidationRequest`` (``{"address": {...}}``). A legacy
-        ``street1``/``state``/``zip`` address is mapped to the Gateway field names.
+        Sends the Gateway ``AddressValidationRequest``, a flat ``{"name"?, "line1", "line2"?, "city",
+        "state"?, "postalCode", "country"}``. A ``ShippingAddress`` (``addressLine1``,
+        ``stateProvince``, ``countryCode``) or legacy ``street1``/``state``/``zip`` address is mapped
+        to those names. Returns the bare ``AddressValidationResult`` (``isValid``,
+        ``suggestedAddress``, ``isResidential``, ``warnings``, ``validatedBy``,
+        ``validationUnavailable``, ``checkedAt``); ``validationUnavailable`` means no carrier could
+        check the address, not that it was rejected.
         """
-        return self._http.post("/api/shipping/addresses/validate", {"address": _to_shipping_address(address)})
+        ws_id = self._get_workspace_id()
+        headers = {"X-Workspace-Id": ws_id} if ws_id else None
+        return self._http.post("/api/addresses/validate", _to_validation_address(address), headers=headers)
 
     # -- Batch Labels -------------------------------------------------------
 
@@ -127,12 +134,15 @@ class ShippingResource:
         return self._http.get("/api/shipping/savings")
 
 
-_LEGACY_ADDRESS_FIELDS = {
-    "street1": "addressLine1",
-    "street2": "addressLine2",
-    "state": "stateProvince",
-    "zip": "postalCode",
-    "country": "countryCode",
+# ShippingAddress and legacy Address names for each AddressValidationRequest field.
+_VALIDATION_FIELDS = {
+    "name": ("name",),
+    "line1": ("line1", "addressLine1", "street1"),
+    "line2": ("line2", "addressLine2", "street2"),
+    "city": ("city",),
+    "state": ("state", "stateProvince"),
+    "postalCode": ("postalCode", "zip"),
+    "country": ("country", "countryCode"),
 }
 
 
@@ -143,10 +153,13 @@ def _to_body(request: Any) -> Any:
     return request
 
 
-def _to_shipping_address(address: dict[str, Any] | ShippingAddress | Address) -> dict[str, Any]:
-    """Maps an address to the Gateway ``ShippingAddress``; canonical input passes through."""
+def _to_validation_address(address: dict[str, Any] | ShippingAddress | Address) -> dict[str, Any]:
+    """Maps an address to the flat Gateway ``AddressValidationRequest``; other fields are left out."""
     if isinstance(address, (ShippingAddress, Address)):
         address = address.model_dump(by_alias=True, exclude_none=True)
-    if "street1" not in address:
-        return address
-    return {_LEGACY_ADDRESS_FIELDS.get(key, key): value for key, value in address.items() if value is not None}
+    body: dict[str, Any] = {}
+    for field, sources in _VALIDATION_FIELDS.items():
+        value = next((address[key] for key in sources if address.get(key) is not None), None)
+        if value is not None:
+            body[field] = value
+    return body

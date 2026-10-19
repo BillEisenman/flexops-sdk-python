@@ -79,10 +79,6 @@ class WebhooksResource:
         """List all webhook subscriptions for the workspace."""
         return self._http.get(self._ws_path())
 
-    def get(self, webhook_id: str) -> dict[str, Any]:
-        """Get a webhook subscription by ID."""
-        return self._http.get(self._ws_path(webhook_id))
-
     def create(
         self,
         url: str,
@@ -134,6 +130,10 @@ class WebhooksResource:
     def list_delivery_logs(self, webhook_id: str) -> dict[str, Any]:
         """List delivery logs for a webhook."""
         return self._http.get(self._ws_path(f"{webhook_id}/deliveries"))
+
+    def test(self, webhook_id: str) -> dict[str, Any]:
+        """Send a test event (``X-FlexOps-Event: test``) to a webhook. Needs the Owner or Admin role."""
+        return self._http.post(self._ws_path(f"{webhook_id}/test"))
 
     @staticmethod
     def verify_signature(

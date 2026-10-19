@@ -64,14 +64,17 @@ class TestShipping:
     def test_validate_address(self, client):
         from flexops import ShippingAddress
 
+        # The documented route; /api/shipping/addresses/validate is hidden from the API reference.
         responses.add(
             responses.POST,
-            f"{BASE_URL}/api/shipping/addresses/validate",
-            json={"isValid": True, "messages": []},
+            f"{BASE_URL}/api/addresses/validate",
+            json={"isValid": True, "isResidential": True, "warnings": [], "validationUnavailable": False},
             status=200,
         )
-        canonical = {"addressLine1": "123 Main St", "city": "New York", "stateProvince": "NY",
-                     "postalCode": "10001", "countryCode": "US"}
+        canonical = {"addressLine1": "123 Main St", "addressLine2": "Apt 4", "city": "New York",
+                     "stateProvince": "NY", "postalCode": "10001", "countryCode": "US", "phone": "555-0100"}
+        flat = {"line1": "123 Main St", "line2": "Apt 4", "city": "New York", "state": "NY",
+                "postalCode": "10001", "country": "US"}
 
         result = client.shipping.validate_address({
             "name": "John Doe",
@@ -83,11 +86,15 @@ class TestShipping:
         })
         client.shipping.validate_address(canonical)
         client.shipping.validate_address(ShippingAddress.model_validate(canonical))
+        client.shipping.validate_address(flat)
 
         assert result["isValid"] is True
-        assert json.loads(responses.calls[0].request.body) == {"address": {"name": "John Doe", **canonical}}
-        assert json.loads(responses.calls[1].request.body) == {"address": canonical}
-        assert json.loads(responses.calls[2].request.body) == {"address": canonical}
+        no_line2 = {k: v for k, v in flat.items() if k != "line2"}
+        assert json.loads(responses.calls[0].request.body) == {"name": "John Doe", **no_line2}
+        assert json.loads(responses.calls[1].request.body) == flat
+        assert json.loads(responses.calls[2].request.body) == flat
+        assert json.loads(responses.calls[3].request.body) == flat
+        assert responses.calls[0].request.headers["X-Workspace-Id"] == WS_ID
 
     @responses.activate
     def test_track_shipment(self, client):
@@ -141,7 +148,8 @@ class TestShipping:
         assert responses.calls[1].request.body == responses.calls[2].request.body
         responses.add(responses.POST, url, json=preview)
         assert client.shipping.create_label(body)["status"] == "Preview"
-        assert "Idempotency-Key" not in responses.calls[3].request.headers
+        # Without a caller key the SDK still sends one, generated for that call.
+        assert responses.calls[3].request.headers["Idempotency-Key"] not in ("", "purchase-001")
 
     @responses.activate
     def test_label_approval_errors(self, client):

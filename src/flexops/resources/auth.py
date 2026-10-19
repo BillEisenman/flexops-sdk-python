@@ -14,70 +14,45 @@ from .._http import HttpClient
 
 
 class AuthResource:
-    """Authentication operations (login, register, password management)."""
+    """Token acquisition for user-token operations (login, refresh, logout).
+
+    Account management (registration, profile, passwords) is done in the FlexOps portals.
+    """
 
     def __init__(self, http: HttpClient) -> None:
         self._http = http
 
     def login(self, email: str, password: str) -> dict[str, Any]:
-        """Authenticate with email and password. Returns JWT tokens."""
+        """Authenticate with email and password and use the returned access token.
+
+        Returns the envelope whose ``data`` is the Gateway ``LoginResponse``: ``token`` (the access
+        token), ``refreshToken``, ``expiresAt``, ``userId``, ``requiresTwoFactor`` and so on.
+        """
         result = self._http.post("/api/Account/login", {"email": email, "password": password})
-        if isinstance(result, dict) and result.get("data", {}).get("accessToken"):
-            self._http.set_access_token(result["data"]["accessToken"])
+        self._use_token(result)
         return result
 
-    def register(
-        self, *, email: str, password: str, first_name: str, last_name: str, company_name: str | None = None,
-    ) -> dict[str, Any]:
-        """Register a new account."""
-        body: dict[str, Any] = {
-            "email": email,
-            "password": password,
-            "firstName": first_name,
-            "lastName": last_name,
-        }
-        if company_name:
-            body["companyName"] = company_name
-        return self._http.post("/api/Account/register", body)
+    def refresh_token(self, refresh_token: str, access_token: str | None = None) -> dict[str, Any]:
+        """Exchange a refresh token, with the access token it was issued with, for new tokens.
 
-    def refresh_token(self, refresh_token: str) -> dict[str, Any]:
-        """Refresh an expired access token."""
-        result = self._http.request(
-            "POST",
-            "/api/Account/refresh-token",
-            headers={"X-Current-Session-Token": refresh_token},
-        )
-        if isinstance(result, dict) and result.get("data", {}).get("accessToken"):
-            self._http.set_access_token(result["data"]["accessToken"])
+        ``access_token`` defaults to the client's current access token. The new access token
+        (``data["token"]``) replaces it.
+
+        Raises:
+            ValueError: No access token was passed and the client has none.
+        """
+        token = access_token or self._http.access_token
+        if not token:
+            raise ValueError("refresh_token needs the current access token; pass access_token or log in first.")
+        result = self._http.post("/api/Account/refresh-token", {"token": token, "refreshToken": refresh_token})
+        self._use_token(result)
         return result
+
+    def _use_token(self, result: Any) -> None:
+        data = result.get("data") if isinstance(result, dict) else None
+        if isinstance(data, dict) and data.get("token"):
+            self._http.set_access_token(data["token"])
 
     def logout(self) -> dict[str, Any]:
         """Log out and invalidate the current session."""
         return self._http.post("/api/Account/logout")
-
-    def get_profile(self) -> dict[str, Any]:
-        """Get the current user's profile."""
-        return self._http.get("/api/Account/profile")
-
-    def update_profile(self, data: dict[str, Any]) -> dict[str, Any]:
-        """Update the current user's profile."""
-        return self._http.put("/api/Account/profile", data)
-
-    def change_password(self, current_password: str, new_password: str) -> dict[str, Any]:
-        """Change the current user's password."""
-        return self._http.post("/api/Account/change-password", {
-            "currentPassword": current_password,
-            "newPassword": new_password,
-        })
-
-    def forgot_password(self, email: str) -> dict[str, Any]:
-        """Request a password reset email."""
-        return self._http.post("/api/Account/forgot-password", {"email": email})
-
-    def reset_password(self, token: str, new_password: str) -> dict[str, Any]:
-        """Reset password using a reset token."""
-        return self._http.post("/api/Account/reset-password", {"token": token, "newPassword": new_password})
-
-    def verify_email(self, token: str) -> dict[str, Any]:
-        """Verify email with the verification token."""
-        return self._http.post("/api/Account/verify-email", {"token": token})

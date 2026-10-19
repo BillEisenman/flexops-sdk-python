@@ -1,30 +1,27 @@
 # ***********************************************************************
 # Package          : flexops
 # Author           : FlexOps, LLC
-# Created          : 2026-03-31
+# Created          : 2026-03-04
 #
 # Copyright (c) 2021-2026 by FlexOps, LLC. All rights reserved.
 # ***********************************************************************
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any
+from urllib.parse import quote
 
 from .._http import HttpClient
 
 
 class HsCodesResource:
-    """HS code lookup and landed cost estimation for international shipments."""
+    """HS code lookup and landed cost estimation for international shipments.
 
-    def __init__(self, http: HttpClient, get_workspace_id: Callable[[], str | None]) -> None:
+    These are Gateway ``/api/shipping/...`` routes; they are not workspace-scoped.
+    """
+
+    def __init__(self, http: HttpClient) -> None:
         self._http = http
-        self._get_workspace_id = get_workspace_id
-
-    def _ws_path(self, suffix: str) -> str:
-        ws_id = self._get_workspace_id()
-        if not ws_id:
-            raise ValueError("workspace_id is required.")
-        return f"/api/workspaces/{ws_id}/{suffix}"
 
     def search(
         self,
@@ -32,17 +29,22 @@ class HsCodesResource:
         *,
         destination_country: str | None = None,
         max_results: int = 10,
-    ) -> dict[str, Any]:
-        """Search for HS codes by keyword or product description."""
+    ) -> list[dict[str, Any]]:
+        """Search for HS codes by keyword or product description. Returns a bare list."""
         params: dict[str, Any] = {"query": query, "maxResults": max_results}
         if destination_country is not None:
             params["destinationCountry"] = destination_country
-        return self._http.get(self._ws_path("shipping/hs-codes/search"), params)
+        return self._http.get("/api/shipping/hs-codes/search", params)
 
     def lookup(self, code: str) -> dict[str, Any]:
-        """Look up details for a specific HS code."""
-        return self._http.get(self._ws_path(f"shipping/hs-codes/{code}"))
+        """Look up details for a specific HS code. Returns the bare result."""
+        return self._http.get(f"/api/shipping/hs-codes/{quote(code, safe='')}")
 
     def estimate_landed_cost(self, request: dict[str, Any]) -> dict[str, Any]:
-        """Estimate duties, taxes, and fees (landed cost) for an international shipment."""
-        return self._http.post(self._ws_path("shipping/landed-cost"), request)
+        """Estimate duties, taxes and fees (landed cost) for an international shipment.
+
+        ``request`` is the Gateway ``LandedCostRequest``: ``destinationCountry``, ``shippingCost`` and
+        ``items``, each ``{description, quantity, value, weightOz, originCountry, hsCode?,
+        skuOrProductId?}``. Returns the bare estimate.
+        """
+        return self._http.post("/api/shipping/landed-cost", request)
