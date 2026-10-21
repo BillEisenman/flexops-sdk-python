@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `webhooks.delete()` and `rules.delete()` are annotated `-> None`. The Gateway answers both with 204 No Content,
+  so they always returned `None`, but were annotated as a response dict, so type checkers accepted code such as
+  `client.webhooks.delete(id)["success"]`, which raises `TypeError`.
+
 ## [3.0.0] - 2026-10-19
 
 The SDK now covers only the documented public Gateway API. Portal features and calls with no

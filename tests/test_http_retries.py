@@ -219,6 +219,12 @@ class TestEmptyResponses:
         assert client.webhooks.delete("wh-1") is None
 
     @responses.activate
+    def test_204_labelled_json_is_not_parsed(self, client):
+        responses.add(responses.DELETE, f"{HOOKS}/wh-1", body=b"", status=204, content_type="application/json")
+
+        assert client.webhooks.delete("wh-1") is None
+
+    @responses.activate
     def test_empty_200_returns_none(self, client):
         responses.add(responses.POST, re.compile(rf"{HOOKS}/wh-1/test"), body=b"", status=200,
                       headers={"Content-Length": "0"}, content_type="application/json")

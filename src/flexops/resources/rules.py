@@ -47,8 +47,8 @@ class RulesResource:
         """Update a shipping rule. ``rule`` takes the fields of ``create``; the ones left out are kept."""
         return self._http.put(self._ws_path(rule_id), rule)
 
-    def delete(self, rule_id: str) -> dict[str, Any]:
-        """Delete a shipping rule."""
+    def delete(self, rule_id: str) -> None:
+        """Delete a shipping rule. The Gateway answers 204 No Content, so this returns ``None``."""
         return self._http.delete(self._ws_path(rule_id))
 
     def reorder(self, rules: list[str] | list[dict[str, Any]]) -> dict[str, Any]:
