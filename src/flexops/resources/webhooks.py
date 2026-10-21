@@ -119,8 +119,8 @@ class WebhooksResource:
             body["eventTypes"] = _to_event_types(body.pop("events"))
         return self._http.put(self._ws_path(webhook_id), body)
 
-    def delete(self, webhook_id: str) -> dict[str, Any]:
-        """Delete a webhook subscription."""
+    def delete(self, webhook_id: str) -> None:
+        """Delete a webhook subscription. The Gateway answers 204 No Content, so this returns ``None``."""
         return self._http.delete(self._ws_path(webhook_id))
 
     def rotate_secret(self, webhook_id: str) -> dict[str, Any]:

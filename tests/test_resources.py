@@ -9,10 +9,13 @@
 """Routes, bodies and headers checked against the Gateway controllers and DTOs."""
 
 import json
+from typing import get_type_hints
 
 import pytest
 import responses
 
+from flexops.resources.rules import RulesResource
+from flexops.resources.webhooks import WebhooksResource
 from tests.conftest import BASE_URL
 
 WS_ID = "ws-test-001"
@@ -142,6 +145,22 @@ class TestRules:
         client.rules.test({"destinationCountry": "US", "weightOz": 12})
 
         assert sent() == {"destinationCountry": "US", "weightOz": 12}
+
+    @responses.activate
+    def test_delete_returns_none_for_the_204(self, client):
+        responses.add(responses.DELETE, f"{WS}/shipping-rules/r-1", status=204)
+
+        assert client.rules.delete("r-1") is None
+        assert responses.calls[0].request.method == "DELETE"
+        assert responses.calls[0].request.url == f"{WS}/shipping-rules/r-1"
+
+
+class TestDeleteReturnTypes:
+    """Deletes the Gateway answers with 204 No Content are annotated ``None``, not a response envelope."""
+
+    @pytest.mark.parametrize("method", [WebhooksResource.delete, RulesResource.delete])
+    def test_204_deletes_are_annotated_none(self, method):
+        assert get_type_hints(method)["return"] is type(None)
 
 
 class TestPickups:
