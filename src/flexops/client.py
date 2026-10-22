@@ -42,8 +42,8 @@ class FlexOps:
         from flexops import FlexOps
 
         client = FlexOps(
-            api_key="fxk_live_...",
-            workspace_id="ws_abc123",
+            api_key="live_...",
+            workspace_id="your-workspace-id",
         )
 
         # Get shipping rates

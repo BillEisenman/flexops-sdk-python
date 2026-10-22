@@ -15,8 +15,8 @@ from flexops import FlexOps
 
 # API key authentication (recommended for server-to-server)
 client = FlexOps(
-    api_key="fxk_live_...",
-    workspace_id="ws_abc123",
+    api_key="live_...",
+    workspace_id="your-workspace-id",
 )
 
 # Get shipping rates from all carriers
@@ -80,7 +80,7 @@ separate contracts. The SDK never automatically confirms a preview.
 ### API Key (recommended)
 
 ```python
-client = FlexOps(api_key="fxk_live_...", workspace_id="ws_abc123")
+client = FlexOps(api_key="live_...", workspace_id="your-workspace-id")
 ```
 
 ### Email / Password
@@ -88,7 +88,7 @@ client = FlexOps(api_key="fxk_live_...", workspace_id="ws_abc123")
 ```python
 client = FlexOps(base_url="https://gateway.flexops.io")
 client.auth.login("user@example.com", "password")
-client.workspace_id = "ws_abc123"
+client.workspace_id = "your-workspace-id"
 ```
 
 ## Carrier-Specific Operations
@@ -241,7 +241,7 @@ Every SDK method is a thin wrapper around the FlexOps REST API. If you want to v
 ```bash
 # Shop rates across all connected carriers
 curl -X POST https://gateway.flexops.io/api/shipping/rates \
-  -H "X-API-Key: fxk_live_..." \
+  -H "X-API-Key: live_..." \
   -H "Content-Type: application/json" \
   -d '{
     "origin": {"addressLine1": "123 Main St", "city": "New York", "stateProvince": "NY", "postalCode": "10001", "countryCode": "US"},
@@ -252,7 +252,7 @@ curl -X POST https://gateway.flexops.io/api/shipping/rates \
 # Preview a live label; this does not purchase it.
 # hazmatClassification 0 = not hazardous; required when there is no orderId.
 curl -X POST https://gateway.flexops.io/api/shipping/labels \
-  -H "X-API-Key: fxk_live_..." \
+  -H "X-API-Key: live_..." \
   -H "Content-Type: application/json" \
   -d '{
     "carrierCode": "USPS", "serviceCode": "GROUND_ADVANTAGE",
@@ -269,14 +269,14 @@ curl -X POST https://gateway.flexops.io/api/shipping/labels \
 
 # Track a shipment
 curl https://gateway.flexops.io/api/shipping/track/9400111899223456789012 \
-  -H "X-API-Key: fxk_live_..."
+  -H "X-API-Key: live_..."
 
 # Cancel (void) a label
 curl -X DELETE "https://gateway.flexops.io/api/shipping/labels/{labelId}?carrierCode=USPS" \
-  -H "X-API-Key: fxk_live_..."
+  -H "X-API-Key: live_..."
 ```
 
-Use an `fxk_test_...` key instead of `fxk_live_...` to hit the sandbox environment; mock carriers respond, no real charges, no real labels.
+Use a `test_...` key instead of `live_...` to hit the sandbox environment; mock carriers respond, no real charges, no real labels.
 
 ## Resources
 
@@ -309,8 +309,8 @@ API keys, wallet funding and account management are portal features and are not 
 ```python
 client = FlexOps(
     base_url="https://gateway.flexops.io",  # API base URL
-    api_key="fxk_live_...",              # API key auth
-    workspace_id="ws_abc123",            # Default workspace
+    api_key="live_...",                  # API key auth
+    workspace_id="your-workspace-id",    # Default workspace
     timeout=30.0,                        # Request timeout (seconds)
     headers={"X-Custom": "value"},       # Custom headers
     retry={                              # Retry configuration
