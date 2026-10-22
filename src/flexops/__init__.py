@@ -12,7 +12,7 @@ Usage::
 
     from flexops import FlexOps
 
-    client = FlexOps(api_key="fxk_live_...", workspace_id="ws_abc123")
+    client = FlexOps(api_key="live_...", workspace_id="your-workspace-id")
     rates = client.shipping.get_rates({
         "origin": {"addressLine1": "123 Main St", "city": "New York", "stateProvince": "NY", "postalCode": "10001"},
         "destination": {"addressLine1": "456 Oak Ave", "city": "Los Angeles",
