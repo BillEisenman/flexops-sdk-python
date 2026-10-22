@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.0.1] - 2026-10-22
+
 ### Fixed
 - `webhooks.delete()` and `rules.delete()` are annotated `-> None`. The Gateway answers both with 204 No Content,
   so they always returned `None`, but were annotated as a response dict, so type checkers accepted code such as
