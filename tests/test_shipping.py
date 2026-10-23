@@ -368,6 +368,7 @@ class TestMultiPackage:
         request = MultiPackageShipmentRequest(
             order_id=15563627, carrier_code="USPS", service_code="PRIORITY",
             hazmat_classification=HazmatClassification.NONE,
+            maximum_postage_amount=25,
             packages=[
                 MultiPackageDetail(weight_in_ounces=16, length_in_inches=10, width_in_inches=8, height_in_inches=4,
                                    package_reference="Box 1 of 2"),
@@ -381,6 +382,7 @@ class TestMultiPackage:
         assert call.headers["Idempotency-Key"] == "order-15563627"
         assert json.loads(call.body) == {
             "orderId": 15563627, "carrierCode": "USPS", "serviceCode": "PRIORITY", "hazmatClassification": 0,
+            "maximumPostageAmount": 25,
             "packages": [
                 {"weightInOunces": 16, "lengthInInches": 10, "widthInInches": 8, "heightInInches": 4,
                  "deliveryConfirmationRequired": False, "signatureConfirmationRequired": False,
@@ -392,6 +394,33 @@ class TestMultiPackage:
         }
         assert result["data"]["successfulPackages"] == 2
 
+    def test_typed_request_requires_the_maximum_postage_amount(self):
+        import pydantic
+
+        from flexops import MultiPackageDetail, MultiPackageShipmentRequest
+
+        box = MultiPackageDetail(weight_in_ounces=16, length_in_inches=10, width_in_inches=8, height_in_inches=4)
+        with pytest.raises(pydantic.ValidationError) as raised:
+            MultiPackageShipmentRequest(order_id=1, carrier_code="USPS", packages=[box])
+
+        assert "maximumPostageAmount" in str(raised.value) or "maximum_postage_amount" in str(raised.value)
+
+    @responses.activate
+    def test_refused_ceiling_raises_with_the_gateway_code_and_is_not_retried(self, client):
+        from flexops import FlexOpsError
+
+        responses.add(responses.POST, f"{BASE_URL}/api/shipping/multi-package", status=400, json={
+            "success": False, "errorCode": "ApprovalRequired",
+            "message": "Supply maximumPostageAmount in USD, positive and with at most two decimal places."})
+
+        with pytest.raises(FlexOpsError) as raised:
+            client.shipping.create_multi_package(
+                {"orderId": 1, "carrierCode": "USPS", "maximumPostageAmount": 0, "packages": [{}]})
+
+        assert raised.value.status == 400
+        assert raised.value.code == "ApprovalRequired"
+        assert len(responses.calls) == 1
+
     def test_typed_request_refuses_a_hazmat_class(self):
         import pydantic
 
@@ -399,7 +428,7 @@ class TestMultiPackage:
 
         with pytest.raises(pydantic.ValidationError):
             MultiPackageShipmentRequest(
-                order_id=1, carrier_code="USPS", packages=[],
+                order_id=1, carrier_code="USPS", packages=[], maximum_postage_amount=10,
                 hazmat_classification=HazmatClassification.LIMITED_QUANTITY,
             )
 

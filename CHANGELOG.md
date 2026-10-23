@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- `MultiPackageShipmentRequest.maximum_postage_amount` is required: the most the whole shipment may cost, in USD
+  (positive, at most two decimals). The Gateway refuses to buy a box that would take the total above it, so a
+  shipment never costs more. A box priced above what is left reports `PriceCeilingExceeded`; once the amount is
+  used up the remaining boxes report `PriceCeilingReached` and are not bought. Boxes already bought stay bought.
+  The Gateway requires it from the release that ships this change (a request without it is 400 `ApprovalRequired`),
+  so this is breaking only for a `create_multi_package` call written against 3.1.0, released 2026-10-22. A dict
+  request sends `maximumPostageAmount`.
+
 ## [3.1.0] - 2026-10-22
 
 3.1.0 adds multi-package labels and RMA reads, and corrects the returns `get` docs. Existing code keeps working.

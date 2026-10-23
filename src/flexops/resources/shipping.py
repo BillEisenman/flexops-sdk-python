@@ -136,6 +136,11 @@ class ShippingResource:
         ``FlexOpsError`` whose ``data`` holds the per-box results. After ``OutcomeUnknown``, check the
         order before buying again.
 
+        ``maximumPostageAmount`` (``maximum_postage_amount`` on the typed request) is required: the most
+        the whole shipment may cost in USD. The Gateway refuses to buy any box that would take the total
+        above it (that box reports ``PriceCeilingExceeded``; boxes after the ceiling is used up report
+        ``PriceCeilingReached``), and a request without a valid one is 400 ``ApprovalRequired``.
+
         ``hazmatClassification`` accepts only ``HazmatClassification.NONE`` (0) or nothing. Pass a
         stable ``idempotency_key`` to retry safely across processes; otherwise one is generated.
         """
