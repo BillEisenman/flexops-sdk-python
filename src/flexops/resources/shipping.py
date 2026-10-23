@@ -102,12 +102,19 @@ class ShippingResource:
         """Create labels in batch.
 
         A dict is sent as given. Set ``hazmatClassification`` on an item only when you have
-        a declaration; the SDK never adds one.
+        a declaration; the SDK never adds one. Batch labels cannot carry HAZMAT yet: an item's
+        ``hazmatClassification`` accepts only ``HazmatClassification.NONE`` (0) or nothing, and the
+        Gateway refuses any other class with 400 ``HazmatNotSupported``. Buy HAZMAT labels one at a
+        time with ``create_label``.
         """
         return self._http.post(self._ws_path("labels/batch"), _to_body(request))
 
     def preview_batch(self, request: dict[str, Any] | CreateBatchLabelRequest) -> dict[str, Any]:
-        """Preview a batch without purchasing (dry-run)."""
+        """Preview a batch without purchasing (dry-run).
+
+        The same HAZMAT rule as ``create_batch`` applies: an item's ``hazmatClassification`` accepts
+        only ``HazmatClassification.NONE`` (0) or nothing (any other class is 400 ``HazmatNotSupported``).
+        """
         return self._http.post(self._ws_path("labels/batch/preview"), _to_body(request))
 
     def get_batch_status(self, job_id: str) -> dict[str, Any]:
