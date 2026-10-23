@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-10-22
+
+3.1.0 adds multi-package labels and RMA reads, and corrects the returns `get` docs. Existing code keeps working.
+
 ### Added
 - `shipping.create_multi_package(request, *, idempotency_key=None)` buys labels for one order shipped in 1 to 99
   boxes (`POST /api/shipping/multi-package`). Typed with `MultiPackageShipmentRequest` and `MultiPackageDetail`;
