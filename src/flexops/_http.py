@@ -152,6 +152,7 @@ class HttpClient:
                     status=resp.status_code,
                     code=code or ("FORBIDDEN" if resp.status_code == 403 else None),
                     errors=error_body.get("errors"),
+                    data=error_body.get("data"),
                 )
 
                 if resp.status_code == 403:

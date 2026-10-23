@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 from typing import Any, Callable
+from urllib.parse import quote
 
 from .._http import HttpClient
 
@@ -35,7 +36,10 @@ class ReturnsResource:
         start_date: str | None = None,
         end_date: str | None = None,
     ) -> dict[str, Any]:
-        """List returns, optionally within a date range (ISO 8601 ``start_date`` and ``end_date``)."""
+        """List received returns, optionally within a date range (ISO 8601 ``start_date`` and ``end_date``).
+
+        The Gateway defaults to the last 30 days. To list return authorizations, use ``list_rmas``.
+        """
         query: dict[str, Any] = {}
         if page is not None:
             query["page"] = page
@@ -47,9 +51,25 @@ class ReturnsResource:
             query["endDate"] = end_date
         return self._http.get(self._ws_path(), query or None)
 
-    def get(self, return_id: str) -> dict[str, Any]:
-        """Get a return authorization by ID."""
-        return self._http.get(self._ws_path(return_id))
+    def get(self, return_id: int | str) -> dict[str, Any]:
+        """Get a received return by its numeric return ID (``returnId`` on a listed return or an RMA).
+
+        An RMA number such as ``RMA-1001`` is not a return ID and matches no Gateway route; use ``get_rma``.
+        """
+        return self._http.get(self._ws_path(str(return_id)))
+
+    def list_rmas(self, *, page: int | None = None, page_size: int | None = None) -> dict[str, Any]:
+        """List return authorizations (RMAs), one page at a time."""
+        query: dict[str, Any] = {}
+        if page is not None:
+            query["page"] = page
+        if page_size is not None:
+            query["pageSize"] = page_size
+        return self._http.get(self._ws_path("rma"), query or None)
+
+    def get_rma(self, rma_number: str) -> dict[str, Any]:
+        """Get a return authorization by its RMA number, for example ``RMA-1001``."""
+        return self._http.get(self._ws_path(f"rma/{quote(rma_number, safe='')}"))
 
     def create(
         self,

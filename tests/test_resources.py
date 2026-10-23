@@ -122,6 +122,31 @@ class TestReturns:
 
         assert sent() == {"rmaNumber": "RMA-1", "warehouseId": 3, "inspectedItems": items}
 
+    @responses.activate
+    def test_get_reads_a_received_return_by_numeric_id(self, client):
+        responses.add(responses.GET, f"{WS}/returns/42", json={"success": True, "data": {"returnId": 42}})
+
+        client.returns.get(42)
+
+        assert len(responses.calls) == 1
+
+    @responses.activate
+    def test_get_rma_reads_an_rma_by_number(self, client):
+        responses.add(responses.GET, f"{WS}/returns/rma/RMA-1001", json={"success": True, "data": {"rmaId": 7}})
+
+        result = client.returns.get_rma("RMA-1001")
+
+        assert result["data"]["rmaId"] == 7
+
+    @responses.activate
+    def test_list_rmas_pages_the_rma_route(self, client):
+        responses.add(responses.GET, f"{WS}/returns/rma", json={"success": True, "data": []},
+                      match=[responses.matchers.query_param_matcher({"page": "2", "pageSize": "50"})])
+
+        client.returns.list_rmas(page=2, page_size=50)
+
+        assert len(responses.calls) == 1
+
     def test_portal_only_return_decisions_are_gone(self, client):
         for name in ("approve", "reject", "cancel", "process_refund"):
             assert not hasattr(client.returns, name), name

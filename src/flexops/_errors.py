@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 
 class FlexOpsError(Exception):
     """Base exception for all FlexOps SDK errors."""
@@ -18,11 +20,15 @@ class FlexOpsError(Exception):
         status: int = 0,
         code: str | None = None,
         errors: list[str] | None = None,
+        data: Any = None,
     ) -> None:
         super().__init__(message)
         self.status = status
         self.code = code
         self.errors = errors
+        # The envelope's ``data`` on an error reply, when the Gateway sends one (for example the
+        # per-box results of a multi-package 409 or 422).
+        self.data = data
 
 
 class FlexOpsAuthError(FlexOpsError):

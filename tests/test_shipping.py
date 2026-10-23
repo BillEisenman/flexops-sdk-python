@@ -8,6 +8,7 @@
 
 import json
 
+import pytest
 import responses
 
 from tests.conftest import BASE_URL
@@ -349,3 +350,72 @@ class TestBatchLabels:
         responses.add(responses.POST, f"{BASE_URL}/api/workspaces/{WS_ID}/labels/batch", json={"success": True})
         client.shipping.create_batch({"items": [{"orderId": 1}]})
         assert json.loads(responses.calls[0].request.body) == {"items": [{"orderId": 1}]}
+
+
+class TestMultiPackage:
+    """POST /api/shipping/multi-package: one order in several boxes, HAZMAT only 0 or omitted."""
+
+    @responses.activate
+    def test_typed_request_matches_gateway_shape_and_sends_the_key(self, client):
+        from flexops import HazmatClassification, MultiPackageDetail, MultiPackageShipmentRequest
+
+        responses.add(responses.POST, f"{BASE_URL}/api/shipping/multi-package", json={
+            "success": True,
+            "data": {"orderId": 15563627, "carrierCode": "USPS", "totalPackages": 2, "successfulPackages": 2,
+                     "failedPackages": 0, "totalCost": 18.94, "labels": []},
+        })
+
+        request = MultiPackageShipmentRequest(
+            order_id=15563627, carrier_code="USPS", service_code="PRIORITY",
+            hazmat_classification=HazmatClassification.NONE,
+            packages=[
+                MultiPackageDetail(weight_in_ounces=16, length_in_inches=10, width_in_inches=8, height_in_inches=4,
+                                   package_reference="Box 1 of 2"),
+                MultiPackageDetail(weight_in_ounces=8, length_in_inches=6, width_in_inches=6, height_in_inches=6,
+                                   insurance_coverage_requested=True, insured_value=50),
+            ],
+        )
+        result = client.shipping.create_multi_package(request, idempotency_key="order-15563627")
+
+        call = responses.calls[0].request
+        assert call.headers["Idempotency-Key"] == "order-15563627"
+        assert json.loads(call.body) == {
+            "orderId": 15563627, "carrierCode": "USPS", "serviceCode": "PRIORITY", "hazmatClassification": 0,
+            "packages": [
+                {"weightInOunces": 16, "lengthInInches": 10, "widthInInches": 8, "heightInInches": 4,
+                 "deliveryConfirmationRequired": False, "signatureConfirmationRequired": False,
+                 "insuranceCoverageRequested": False, "packageReference": "Box 1 of 2"},
+                {"weightInOunces": 8, "lengthInInches": 6, "widthInInches": 6, "heightInInches": 6,
+                 "deliveryConfirmationRequired": False, "signatureConfirmationRequired": False,
+                 "insuranceCoverageRequested": True, "insuredValue": 50},
+            ],
+        }
+        assert result["data"]["successfulPackages"] == 2
+
+    def test_typed_request_refuses_a_hazmat_class(self):
+        import pydantic
+
+        from flexops import HazmatClassification, MultiPackageShipmentRequest
+
+        with pytest.raises(pydantic.ValidationError):
+            MultiPackageShipmentRequest(
+                order_id=1, carrier_code="USPS", packages=[],
+                hazmat_classification=HazmatClassification.LIMITED_QUANTITY,
+            )
+
+    @responses.activate
+    def test_unknown_outcome_keeps_the_per_box_results_and_is_not_retried(self, client):
+        from flexops import FlexOpsError
+
+        data = {"orderId": 1, "carrierCode": "USPS", "totalPackages": 1, "successfulPackages": 0, "failedPackages": 1,
+                "totalCost": 0, "labels": [{"packageIndex": 0, "success": False, "errorCode": "OutcomeUnknown"}]}
+        responses.add(responses.POST, f"{BASE_URL}/api/shipping/multi-package", status=409, json={
+            "success": False, "message": "No label was confirmed", "errorCode": "OutcomeUnknown", "data": data})
+
+        with pytest.raises(FlexOpsError) as raised:
+            client.shipping.create_multi_package({"orderId": 1, "carrierCode": "USPS", "packages": [{}]})
+
+        assert raised.value.status == 409
+        assert raised.value.code == "OutcomeUnknown"
+        assert raised.value.data == data
+        assert len(responses.calls) == 1

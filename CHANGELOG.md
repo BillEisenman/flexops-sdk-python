@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `shipping.create_multi_package(request, *, idempotency_key=None)` buys labels for one order shipped in 1 to 99
+  boxes (`POST /api/shipping/multi-package`). Typed with `MultiPackageShipmentRequest` and `MultiPackageDetail`;
+  `MultiPackageShipmentResponse` and `MultiPackageLabelResult` describe the reply. The request model accepts only
+  `HazmatClassification.NONE` (or nothing) for `hazmat_classification`, the one class the Gateway takes on this
+  route (anything else is 400 `HazmatNotSupported`).
+- `returns.get_rma(rma_number)` and `returns.list_rmas()` read return authorizations (`GET .../returns/rma/{rmaNumber}`
+  and `GET .../returns/rma`). There was no way to read an RMA back after creating it.
+- `FlexOpsError.data` carries the envelope's `data` on an error reply. A multi-package 422 `AllPackagesFailed` or
+  409 `OutcomeUnknown` puts the per-box results there.
+
+### Fixed
+- `returns.get()` takes the numeric return ID (`int | str`) and says so. It was documented as reading a return
+  authorization, but the Gateway route reads a received return by return ID; an RMA number matched no route.
+  Use `get_rma()` for an RMA. `returns.list()` is documented as listing received returns.
+
 ## [3.0.1] - 2026-10-22
 
 ### Fixed
