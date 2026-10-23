@@ -12,7 +12,14 @@ from typing import Any, Callable
 from urllib.parse import quote
 
 from .._http import HttpClient
-from .._types import Address, CreateBatchLabelRequest, CreateLabelRequest, RateRequest, ShippingAddress
+from .._types import (
+    Address,
+    CreateBatchLabelRequest,
+    CreateLabelRequest,
+    MultiPackageShipmentRequest,
+    RateRequest,
+    ShippingAddress,
+)
 
 
 class ShippingResource:
@@ -111,6 +118,30 @@ class ShippingResource:
         """Download a label from a batch job."""
         return self._http.get(self._ws_path(f"labels/batch/{job_id}/items/{item_id}/label"))
 
+    # -- Multi-Package Labels -----------------------------------------------
+
+    def create_multi_package(
+        self,
+        request: dict[str, Any] | MultiPackageShipmentRequest,
+        *,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """Buy labels for one order shipped in 1 to 99 boxes with the same carrier and service.
+
+        Every box's label slot is reserved before any label is bought; a box that fails does not stop
+        the others, and each box in ``data["labels"]`` reports its own ``success``, ``errorMessage``
+        and ``errorCode``. Returns the envelope when at least one label was bought (check
+        ``failedPackages``). When none was, the Gateway answers 422 ``AllPackagesFailed``, or 409
+        ``OutcomeUnknown`` when a box's carrier outcome is unknown and a label may exist: both raise
+        ``FlexOpsError`` whose ``data`` holds the per-box results. After ``OutcomeUnknown``, check the
+        order before buying again.
+
+        ``hazmatClassification`` accepts only ``HazmatClassification.NONE`` (0) or nothing. Pass a
+        stable ``idempotency_key`` to retry safely across processes; otherwise one is generated.
+        """
+        headers = {"Idempotency-Key": idempotency_key} if idempotency_key is not None else None
+        return self._http.post("/api/shipping/multi-package", _to_body(request), headers=headers)
+
     # -- Carriers -----------------------------------------------------------
 
     def get_carriers(self) -> dict[str, Any]:
@@ -148,7 +179,7 @@ _VALIDATION_FIELDS = {
 
 def _to_body(request: Any) -> Any:
     """Serializes a typed request with Gateway field names; unset fields are left out."""
-    if isinstance(request, (CreateLabelRequest, RateRequest, CreateBatchLabelRequest)):
+    if isinstance(request, (CreateLabelRequest, RateRequest, CreateBatchLabelRequest, MultiPackageShipmentRequest)):
         return request.model_dump(by_alias=True, exclude_none=True)
     return request
 

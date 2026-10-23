@@ -409,6 +409,63 @@ class CreateBatchLabelRequest(_CamelModel):
     dry_run: bool = False
 
 
+class MultiPackageDetail(_CamelModel):
+    """One box in a multi-package shipment: the Gateway PackageDetail.
+
+    Weight is in ounces (0.1 to 999999) and each dimension in inches (0.1 to 999).
+    ``insured_value`` (USD) needs ``insurance_coverage_requested``; left out, the order value is insured.
+    """
+    weight_in_ounces: float
+    length_in_inches: float
+    width_in_inches: float
+    height_in_inches: float
+    delivery_confirmation_required: bool = False
+    signature_confirmation_required: bool = False
+    insurance_coverage_requested: bool = False
+    insured_value: float | None = None
+    # Your label for the box, up to 100 characters (for example "Box 1 of 3").
+    package_reference: str | None = None
+
+
+class MultiPackageShipmentRequest(_CamelModel):
+    """The Gateway MultiPackageShipmentRequest for shipping.create_multi_package.
+
+    One order shipped in 1 to 99 boxes with the same carrier and service; the addresses come from
+    the order. Multi-package labels cannot carry HAZMAT yet, so ``hazmat_classification`` accepts only
+    ``HazmatClassification.NONE`` or nothing (the Gateway refuses any other class with 400
+    ``HazmatNotSupported``); buy HAZMAT labels one at a time with ``shipping.create_label``.
+    """
+    order_id: int
+    carrier_code: str
+    service_code: str | None = None
+    label_format: str | None = None
+    ship_date: str | None = None
+    hazmat_classification: Literal[HazmatClassification.NONE] | None = None
+    packages: list[MultiPackageDetail]
+
+
+class MultiPackageLabelResult(_CamelModel):
+    """One box's outcome: the Gateway PackageLabelResult. ``error_code`` ``OutcomeUnknown`` means a label may exist."""
+    package_index: int
+    package_reference: str | None = None
+    tracking_number: str | None = None
+    rate: float | None = None
+    success: bool
+    error_message: str | None = None
+    error_code: str | None = None
+
+
+class MultiPackageShipmentResponse(_CamelModel):
+    """The Gateway MultiPackageShipmentResponse (the envelope's ``data``)."""
+    order_id: int
+    carrier_code: str | None = None
+    total_packages: int
+    successful_packages: int
+    failed_packages: int
+    total_cost: float
+    labels: list[MultiPackageLabelResult] = []
+
+
 class BatchLabelRequest(_CamelModel):
     """Deprecated: does not match the Gateway batch body. Use CreateBatchLabelRequest."""
     items: list[CreateLabelRequest]
