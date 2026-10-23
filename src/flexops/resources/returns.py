@@ -120,7 +120,9 @@ class ReturnsResource:
         ``PackageMeasurementsRequired`` naming the missing fields.
 
         Only the arguments you set are sent. ``hazmat_classification`` (a ``HazmatClassification``)
-        declares what the return holds. ``carrier_code`` defaults to ``usps`` on the Gateway.
+        declares what the return holds. Return labels cannot carry HAZMAT yet, so it accepts only
+        ``HazmatClassification.NONE`` (0) or nothing; the Gateway refuses any other class with 400
+        ``HazmatNotSupported``. ``carrier_code`` defaults to ``usps`` on the Gateway.
         ``rate_indicator`` names a USPS flat-rate product (for example ``FS``) the customer returns
         in; it needs ``service_type`` ``PRIORITY`` or ``PRIORITY_EXPRESS``.
         """

@@ -398,7 +398,9 @@ class BatchLabelItem(_CamelModel):
     insured_value: float | None = None
     label_format: str = "PDF"
     ship_date: str | None = None
-    # What the parcel holds. Sent only when set.
+    # What the parcel holds. Sent only when set. Batch labels cannot carry HAZMAT yet, so the
+    # Gateway accepts only HazmatClassification.NONE (0) or nothing and refuses any other class
+    # with 400 HazmatNotSupported; buy HAZMAT labels one at a time with shipping.create_label.
     hazmat_classification: HazmatClassification | None = None
 
 
