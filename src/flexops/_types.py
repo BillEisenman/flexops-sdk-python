@@ -434,6 +434,12 @@ class MultiPackageShipmentRequest(_CamelModel):
     the order. Multi-package labels cannot carry HAZMAT yet, so ``hazmat_classification`` accepts only
     ``HazmatClassification.NONE`` or nothing (the Gateway refuses any other class with 400
     ``HazmatNotSupported``); buy HAZMAT labels one at a time with ``shipping.create_label``.
+
+    ``maximum_postage_amount`` is required: the most the whole shipment may cost, in USD (positive, at
+    most two decimals). The Gateway refuses to buy a box that would take the total above it, so you never
+    pay more: a box priced above what is left reports ``PriceCeilingExceeded``, and once the amount is
+    used up the remaining boxes report ``PriceCeilingReached`` and are not bought. Boxes already bought
+    stay bought. A missing or invalid value is 400 ``ApprovalRequired``.
     """
     order_id: int
     carrier_code: str
@@ -441,6 +447,7 @@ class MultiPackageShipmentRequest(_CamelModel):
     label_format: str | None = None
     ship_date: str | None = None
     hazmat_classification: Literal[HazmatClassification.NONE] | None = None
+    maximum_postage_amount: float
     packages: list[MultiPackageDetail]
 
 
