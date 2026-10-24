@@ -58,6 +58,13 @@ class ScanFormsResource:
         Instead of the tracking numbers and keyword arguments, you can pass a ``ScanFormRequest`` with the
         same fields, but not both. A request without ``request_id`` gets a generated one, as above; the
         model you pass is not changed.
+
+        Returns the Gateway envelope; its ``data`` is the created form, also when the same
+        ``request_id`` and inputs are sent again. Read it with ``ScanForm.model_validate(result["data"])``.
+        Raises ``FlexOpsError`` with status 409 when the ``request_id`` was used with different inputs,
+        when the packages already belong to a manifest, or when this or an earlier operation needs review
+        (its message names the operation; do not resubmit those packages), and 400 when the request or
+        package selection is refused. A 409 is not retried.
         """
         options = (manifest_date, request_id, origin_postal_code, warehouse_id)
         if isinstance(tracking_numbers, ScanFormRequest):
@@ -74,9 +81,11 @@ class ScanFormsResource:
         return self._http.post(self._ws_path(), body)
 
     def list(self) -> dict[str, Any]:
-        """List scan forms."""
+        """List the workspace's saved scan forms, newest mailing date first, including any whose
+        outcome is unknown. ``data`` is a list of forms: read each with ``ScanForm.model_validate``."""
         return self._http.get(self._ws_path())
 
     def get(self, scan_form_id: str) -> dict[str, Any]:
-        """Get a scan form by ID."""
+        """Get a saved scan form by its ``scanFormId``. ``data`` is the form: read it with
+        ``ScanForm.model_validate``. A form that does not exist raises ``FlexOpsError`` with status 404."""
         return self._http.get(self._ws_path(scan_form_id))

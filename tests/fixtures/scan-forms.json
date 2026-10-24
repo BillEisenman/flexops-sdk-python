@@ -1,0 +1,83 @@
+{
+  "_comment": "SCAN form replies as the FlexOps Gateway writes them (ScanFormsController, ScanFormDto in an ApiResponse envelope, ASP.NET Core camelCase JSON with nulls written).",
+  "created": {
+    "success": true,
+    "message": null,
+    "data": {
+      "state": "Created",
+      "originPostalCode": "78701",
+      "trackingNumbers": ["9400111899223456789014", "9400111899223456789021"],
+      "createdAtUtc": "2026-09-08T21:14:03.512Z",
+      "scanFormId": "3f2b8c1e9d4a4f6b8a7e2c5d1b0f9e88",
+      "scanFormImage": "JVBERi0xLjQKJSVFT0YK",
+      "manifestNumber": "9475711899560013735215",
+      "manifestDate": "2026-09-08T00:00:00",
+      "packageCount": 2,
+      "statusMessage": "Created — USPS acceptance requires a carrier scan.",
+      "success": true,
+      "errorMessage": null,
+      "isSandbox": false
+    },
+    "errors": null,
+    "errorCode": null
+  },
+  "list": {
+    "success": true,
+    "message": null,
+    "data": [
+      {
+        "state": "Created",
+        "originPostalCode": "78701",
+        "trackingNumbers": ["9400111899223456789038"],
+        "createdAtUtc": "2026-09-09T14:02:11.08Z",
+        "scanFormId": "c0a8017e5b2d4e1f9a3c6b7d8e9f0a12",
+        "scanFormImage": null,
+        "manifestNumber": "SBOXc0a8017e5b2d4e1f9a3c6b7d8e9f0a12",
+        "manifestDate": "2026-09-09T00:00:00",
+        "packageCount": 1,
+        "statusMessage": "Sandbox manifest — not transmitted to USPS.",
+        "success": true,
+        "errorMessage": null,
+        "isSandbox": true
+      },
+      {
+        "state": "OutcomeUnknown",
+        "originPostalCode": "78701",
+        "trackingNumbers": ["9400111899223456789045", "9400111899223456789052"],
+        "createdAtUtc": "2026-09-08T22:40:57.9Z",
+        "scanFormId": "7d1e2f3a4b5c4d6e8f9a0b1c2d3e4f50",
+        "scanFormImage": null,
+        "manifestNumber": "",
+        "manifestDate": "2026-09-08T00:00:00",
+        "packageCount": 2,
+        "statusMessage": "Carrier outcome needs review; do not submit these packages again.",
+        "success": false,
+        "errorMessage": null,
+        "isSandbox": false
+      }
+    ],
+    "errors": null,
+    "errorCode": null
+  },
+  "requestIdReused": {
+    "status": 409,
+    "body": {
+      "success": false,
+      "message": "This request ID was already used with different inputs.",
+      "data": null,
+      "errors": null,
+      "errorCode": null
+    }
+  },
+  "needsReview": {
+    "status": 409,
+    "headers": { "X-Scan-Form-Id": "7d1e2f3a-4b5c-4d6e-8f9a-0b1c2d3e4f50" },
+    "body": {
+      "success": false,
+      "message": "Manifest operation 7d1e2f3a-4b5c-4d6e-8f9a-0b1c2d3e4f50 needs review. Its packages remain reserved; do not submit them again.",
+      "data": null,
+      "errors": null,
+      "errorCode": null
+    }
+  }
+}
