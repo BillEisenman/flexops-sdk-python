@@ -13,6 +13,7 @@ from datetime import date
 from typing import Any, Callable
 
 from .._http import HttpClient
+from .._types import ScanFormRequest
 
 
 class ScanFormsResource:
@@ -31,7 +32,7 @@ class ScanFormsResource:
 
     def create(
         self,
-        tracking_numbers: list[str],
+        tracking_numbers: list[str] | ScanFormRequest,
         *,
         manifest_date: date | str | None = None,
         request_id: str | None = None,
@@ -53,17 +54,23 @@ class ScanFormsResource:
 
         ``origin_postal_code`` is the origin ZIP group to manifest; ``warehouse_id`` limits package
         selection to one warehouse.
+
+        Instead of the tracking numbers and keyword arguments, you can pass a ``ScanFormRequest`` with the
+        same fields, but not both. A request without ``request_id`` gets a generated one, as above; the
+        model you pass is not changed.
         """
-        body: dict[str, Any] = {
-            "trackingNumbers": tracking_numbers,
-            "requestId": request_id or str(uuid.uuid4()),
-        }
-        if manifest_date is not None:
-            body["manifestDate"] = manifest_date.isoformat() if isinstance(manifest_date, date) else manifest_date
-        if origin_postal_code is not None:
-            body["originPostalCode"] = origin_postal_code
-        if warehouse_id is not None:
-            body["warehouseId"] = warehouse_id
+        options = (manifest_date, request_id, origin_postal_code, warehouse_id)
+        if isinstance(tracking_numbers, ScanFormRequest):
+            if any(option is not None for option in options):
+                raise TypeError("Pass the SCAN form fields in the ScanFormRequest or as keyword arguments, not both.")
+            request = tracking_numbers
+        else:
+            request = ScanFormRequest(tracking_numbers=tracking_numbers, manifest_date=manifest_date,
+                                      request_id=request_id, origin_postal_code=origin_postal_code,
+                                      warehouse_id=warehouse_id)
+        body: dict[str, Any] = request.model_dump(mode="json", by_alias=True, exclude_none=True)
+        if not body.get("requestId"):
+            body["requestId"] = str(uuid.uuid4())
         return self._http.post(self._ws_path(), body)
 
     def list(self) -> dict[str, Any]:

@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `request_id`, `origin_postal_code` and `warehouse_id`, the fields of the Gateway's SCAN form request. Live creation
   needs `manifest_date`: without it the Gateway answers 400 `Choose the label mailing date.` It stays optional because
   the sandbox defaults it to today. Existing `create(tracking_numbers)` calls keep working.
+- `ScanFormRequest` has the same optional fields (`manifest_date`, `request_id`, `origin_postal_code`,
+  `warehouse_id`), serialized with the Gateway's names and left out when unset. `scan_forms.create()` accepts a
+  `ScanFormRequest` in place of the tracking numbers and keyword arguments (passing both is a `TypeError`). A model
+  without `request_id` gets a generated one that is reused on every retry; the model itself is not changed.
 
 ### Changed
 - Docs: `pickups.schedule()`/`cancel()` and `scan_forms.create()` need `shipping:write` with an API key, and the

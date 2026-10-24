@@ -59,6 +59,21 @@ class TestWriteRetries:
         assert ids[1] == ids[0]
 
     @responses.activate
+    def test_resends_the_generated_request_id_when_a_scan_form_model_has_none(self, retrying):
+        from flexops import ScanFormRequest
+
+        forms = f"{BASE_URL}/api/workspaces/{WS_ID}/scan-forms"
+        responses.add(responses.POST, forms, json={"message": "Unavailable"}, status=503)
+        responses.add(responses.POST, forms, json={"success": True, "data": {"scanFormId": "sf-1"}})
+
+        retrying.scan_forms.create(ScanFormRequest(tracking_numbers=["9400"], manifest_date="2026-09-08"))
+
+        ids = [json.loads(call.request.body)["requestId"] for call in responses.calls]
+        assert len(ids) == 2
+        assert uuid.UUID(ids[0])
+        assert ids[1] == ids[0]
+
+    @responses.activate
     def test_generates_a_new_key_for_each_separate_write(self, retrying):
         responses.add(responses.POST, HOOKS, json={"success": True, "data": {"id": "wh-1"}}, status=201)
 
