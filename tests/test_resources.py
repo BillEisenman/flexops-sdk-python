@@ -9,6 +9,7 @@
 """Routes, bodies and headers checked against the Gateway controllers and DTOs."""
 
 import json
+import uuid
 from typing import get_type_hints
 
 import pytest
@@ -219,6 +220,34 @@ class TestPickups:
         client.pickups.schedule(request)
 
         assert sent() == request
+
+
+class TestScanForms:
+    @responses.activate
+    def test_create_sends_the_gateway_field_names(self, client):
+        from datetime import date
+
+        responses.add(responses.POST, f"{WS}/scan-forms", json={"success": True})
+
+        client.scan_forms.create(["9400111899223456789014"], manifest_date=date(2026, 9, 8), request_id="req-1",
+                                 origin_postal_code="10001", warehouse_id=7)
+
+        assert sent() == {"trackingNumbers": ["9400111899223456789014"], "manifestDate": "2026-09-08",
+                          "requestId": "req-1", "originPostalCode": "10001", "warehouseId": 7}
+
+    @responses.activate
+    def test_create_generates_a_request_id_per_call_and_sends_only_given_fields(self, client):
+        responses.add(responses.POST, f"{WS}/scan-forms", json={"success": True})
+
+        client.scan_forms.create(["9400"], manifest_date="2026-09-08")
+        client.scan_forms.create(["9400"])
+
+        first, second = sent(0), sent(1)
+        assert set(first) == {"trackingNumbers", "manifestDate", "requestId"}
+        assert first["manifestDate"] == "2026-09-08"
+        assert set(second) == {"trackingNumbers", "requestId"}
+        assert uuid.UUID(first["requestId"]) and uuid.UUID(second["requestId"])
+        assert first["requestId"] != second["requestId"]
 
 
 class TestWorkspaces:
