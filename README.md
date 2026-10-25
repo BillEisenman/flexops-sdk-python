@@ -167,8 +167,20 @@ client.workspaces.update_member_role(user_id, "Member")
 
 ## Webhook Subscriptions
 
+Managing webhooks needs a signed-in user's access token. The Gateway refuses API keys on every webhook
+route, reads included (`list` and `list_delivery_logs` as well as `create`, `update`, `delete`,
+`rotate_secret` and `test`), with 403 `SIGNED_IN_USER_REQUIRED`, whatever the key's scopes; the SDK
+raises `FlexOpsError` with that `code`. Reads are refused too because webhook delivery logs carry each
+delivery's payload (order and customer data). A client with an API key sends the key even when an access
+token is also set, so use a client created without `api_key`. Verifying deliveries (below) makes no
+request and needs no credentials.
+
 ```python
-from flexops import WebhookEventType
+from flexops import FlexOps, WebhookEventType
+
+# Sign in as a user (or pass access_token=); an API key gets 403 SIGNED_IN_USER_REQUIRED here.
+client = FlexOps(workspace_id="your-workspace-id")
+client.auth.login("user@example.com", "password")
 
 # Leave events out to receive every event.
 webhook = client.webhooks.create(
