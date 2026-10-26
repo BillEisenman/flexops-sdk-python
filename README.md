@@ -94,7 +94,10 @@ client.workspace_id = "your-workspace-id"
 ## Carrier-Specific Operations
 
 `client.carriers` reaches USPS, UPS, FedEx and DHL through the legacy API proxy. The lookups (`GET`)
-work with an API key or a user token. The writes are deprecated: each call raises a
+work with a user token, or an API key that has the permission for the data: `shipping:read` for
+address, ZIP, city, location, service point and reference lookups; `tracking:read` for tracking and
+proof of delivery; `rates:read` for delivery standards, rates and products. Without it the Gateway
+returns 403 `API_KEY_SCOPE_REQUIRED`. The writes are deprecated: each call raises a
 `DeprecationWarning`, they need a user token (`auth.login`) because API keys get 403
 `API_KEY_SCOPE_REQUIRED`, and they stop working when the proxy is retired on 2027-06-30. The proxy's
 label-generation routes are closed (410 Gone) and are not offered.
@@ -104,7 +107,7 @@ Native replacements: `client.shipping` (rates, labels, cancellation, tracking, a
 (landed cost).
 
 ```python
-# USPS city/state lookup (API key or user token)
+# USPS city/state lookup (user token, or API key with shipping:read)
 info = client.carriers.usps.city_state_lookup("10001")
 
 # UPS tracking
@@ -290,9 +293,9 @@ Use a `test_...` key instead of `live_...` to hit the sandbox environment; mock 
 | `client.wallet` | 1 | Balance |
 | `client.insurance` | 5 | Quotes, policies, claims |
 | `client.returns` | 5 | RMA creation, labels, receiving |
-| `client.analytics` | 15 | Shipments, orders, carrier analytics |
-| `client.orders` | 10 | Order reads |
-| `client.inventory` | 3 | Warehouse inventory reads |
+| `client.analytics` | 15 | Shipments, orders, carrier analytics (API keys need each method's read permission) |
+| `client.orders` | 10 | Order reads (API keys need `orders:read`) |
+| `client.inventory` | 3 | Warehouse inventory reads (API keys need `inventory:read`) |
 | `client.pickups` | 4 | Carrier pickup scheduling |
 | `client.scan_forms` | 3 | USPS scan forms |
 | `client.rules` | 7 | Shipping automation rules |
@@ -301,6 +304,12 @@ Use a `test_...` key instead of `live_...` to hit the sandbox environment; mock 
 | `client.recurring_shipments` | 8 | Recurring shipment schedules |
 | `client.report_schedules` | 6 | Scheduled reports |
 | `client.email_templates` | 5 | Shipment notification email templates |
+
+`client.analytics`, `client.orders` and `client.inventory` read through the legacy API proxy. With an API
+key they need the permission for the data they read: `orders:read` for orders, `inventory:read` for
+inventory, and for analytics the permission named on each method (`shipping:read`, `inventory:read`,
+`orders:read` or `returns:read`). A key without it gets 403 `API_KEY_SCOPE_REQUIRED`. Keys created with the
+default permissions have all of these.
 
 API keys, wallet funding and account management are portal features and are not part of the SDK.
 

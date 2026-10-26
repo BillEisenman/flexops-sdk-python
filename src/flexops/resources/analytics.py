@@ -14,7 +14,13 @@ from .._http import HttpClient
 
 
 class AnalyticsResource:
-    """Analytics and reporting (shipments, orders, carriers, returns)."""
+    """Analytics and reporting (shipments, orders, carriers, returns) via the legacy VisionSuite API proxy.
+
+    With an API key, each method requires the permission for the data it reads, named on the method:
+    ``shipping:read`` for shipment, carrier and delivery metrics, ``inventory:read`` for inventory
+    metrics, ``orders:read`` for order metrics and ``returns:read`` for returns metrics. A key without
+    it gets 403 ``API_KEY_SCOPE_REQUIRED``. Keys created with the default permissions have all four.
+    """
 
     def __init__(self, http: HttpClient) -> None:
         self._http = http
@@ -48,7 +54,7 @@ class AnalyticsResource:
         end_date: str | None = None,
         period: Literal["day", "week", "month"] | None = None,
     ) -> dict[str, Any]:
-        """Shipments trend over time."""
+        """Shipments trend over time. With an API key, requires ``shipping:read``."""
         return self._http.get(self._path("ShipmentsTrend"), self._date_params(start_date, end_date, period))
 
     def carrier_summary(
@@ -58,7 +64,7 @@ class AnalyticsResource:
         end_date: str | None = None,
         period: Literal["day", "week", "month"] | None = None,
     ) -> dict[str, Any]:
-        """Carrier usage summary."""
+        """Carrier usage summary. With an API key, requires ``shipping:read``."""
         return self._http.get(self._path("CarrierSummary"), self._date_params(start_date, end_date, period))
 
     def top_destinations(
@@ -69,15 +75,15 @@ class AnalyticsResource:
         period: Literal["day", "week", "month"] | None = None,
         limit: int | None = None,
     ) -> dict[str, Any]:
-        """Top shipping destinations."""
+        """Top shipping destinations. With an API key, requires ``shipping:read``."""
         return self._http.get(self._path("TopDestinations"), self._date_params(start_date, end_date, period, limit))
 
     def inventory_metrics(self) -> dict[str, Any]:
-        """Inventory metrics (stock levels, low-stock alerts)."""
+        """Inventory metrics (stock levels, low-stock alerts). With an API key, requires ``inventory:read``."""
         return self._http.get(self._path("InventoryMetrics"))
 
     def stock_by_warehouse(self) -> dict[str, Any]:
-        """Stock levels by warehouse."""
+        """Stock levels by warehouse. With an API key, requires ``inventory:read``."""
         return self._http.get(self._path("StockByWarehouse"))
 
     def order_metrics(
@@ -87,7 +93,7 @@ class AnalyticsResource:
         end_date: str | None = None,
         period: Literal["day", "week", "month"] | None = None,
     ) -> dict[str, Any]:
-        """Order metrics (volume, revenue)."""
+        """Order metrics (volume, revenue). With an API key, requires ``orders:read``."""
         return self._http.get(self._path("OrderMetrics"), self._date_params(start_date, end_date, period))
 
     def order_trend(
@@ -97,7 +103,7 @@ class AnalyticsResource:
         end_date: str | None = None,
         period: Literal["day", "week", "month"] | None = None,
     ) -> dict[str, Any]:
-        """Order trend over time."""
+        """Order trend over time. With an API key, requires ``orders:read``."""
         return self._http.get(self._path("OrderTrend"), self._date_params(start_date, end_date, period))
 
     def top_selling_products(
@@ -108,7 +114,7 @@ class AnalyticsResource:
         period: Literal["day", "week", "month"] | None = None,
         limit: int | None = None,
     ) -> dict[str, Any]:
-        """Top selling products."""
+        """Top selling products. With an API key, requires ``orders:read``."""
         return self._http.get(self._path("TopSellingProducts"), self._date_params(start_date, end_date, period, limit))
 
     def returns_metrics(
@@ -118,7 +124,7 @@ class AnalyticsResource:
         end_date: str | None = None,
         period: Literal["day", "week", "month"] | None = None,
     ) -> dict[str, Any]:
-        """Returns metrics."""
+        """Returns metrics. With an API key, requires ``returns:read``."""
         return self._http.get(self._path("ReturnsMetrics"), self._date_params(start_date, end_date, period))
 
     def returns_trend(
@@ -128,7 +134,7 @@ class AnalyticsResource:
         end_date: str | None = None,
         period: Literal["day", "week", "month"] | None = None,
     ) -> dict[str, Any]:
-        """Returns trend over time."""
+        """Returns trend over time. With an API key, requires ``returns:read``."""
         return self._http.get(self._path("ReturnsTrend"), self._date_params(start_date, end_date, period))
 
     def return_reasons(
@@ -138,7 +144,7 @@ class AnalyticsResource:
         end_date: str | None = None,
         period: Literal["day", "week", "month"] | None = None,
     ) -> dict[str, Any]:
-        """Return reasons breakdown."""
+        """Return reasons breakdown. With an API key, requires ``returns:read``."""
         return self._http.get(self._path("ReturnReasons"), self._date_params(start_date, end_date, period))
 
     def performance_metrics(
@@ -148,7 +154,7 @@ class AnalyticsResource:
         end_date: str | None = None,
         period: Literal["day", "week", "month"] | None = None,
     ) -> dict[str, Any]:
-        """Fulfillment performance metrics."""
+        """Fulfillment performance metrics. With an API key, requires ``shipping:read``."""
         return self._http.get(self._path("PerformanceMetrics"), self._date_params(start_date, end_date, period))
 
     def carrier_performance(
@@ -158,7 +164,7 @@ class AnalyticsResource:
         end_date: str | None = None,
         period: Literal["day", "week", "month"] | None = None,
     ) -> dict[str, Any]:
-        """Carrier delivery performance."""
+        """Carrier delivery performance. With an API key, requires ``shipping:read``."""
         return self._http.get(self._path("CarrierPerformance"), self._date_params(start_date, end_date, period))
 
     def shipping_cost_analytics(
@@ -168,7 +174,7 @@ class AnalyticsResource:
         end_date: str | None = None,
         period: Literal["day", "week", "month"] | None = None,
     ) -> dict[str, Any]:
-        """Shipping cost analytics."""
+        """Shipping cost analytics. With an API key, requires ``shipping:read``."""
         return self._http.get(self._path("ShippingCostAnalytics"), self._date_params(start_date, end_date, period))
 
     def delivery_performance(
@@ -178,5 +184,5 @@ class AnalyticsResource:
         end_date: str | None = None,
         period: Literal["day", "week", "month"] | None = None,
     ) -> dict[str, Any]:
-        """Delivery performance (on-time percentage)."""
+        """Delivery performance (on-time percentage). With an API key, requires ``shipping:read``."""
         return self._http.get(self._path("DeliveryPerformance"), self._date_params(start_date, end_date, period))
