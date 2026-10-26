@@ -9,6 +9,7 @@
 """Routes, bodies and headers checked against the Gateway controllers and DTOs."""
 
 import json
+import uuid
 from typing import get_type_hints
 
 import pytest
@@ -219,6 +220,83 @@ class TestPickups:
         client.pickups.schedule(request)
 
         assert sent() == request
+
+
+class TestScanForms:
+    @responses.activate
+    def test_create_sends_the_gateway_field_names(self, client):
+        from datetime import date
+
+        responses.add(responses.POST, f"{WS}/scan-forms", json={"success": True})
+
+        client.scan_forms.create(["9400111899223456789014"], manifest_date=date(2026, 9, 8), request_id="req-1",
+                                 origin_postal_code="10001", warehouse_id=7)
+
+        assert sent() == {"trackingNumbers": ["9400111899223456789014"], "manifestDate": "2026-09-08",
+                          "requestId": "req-1", "originPostalCode": "10001", "warehouseId": 7}
+
+    @responses.activate
+    def test_create_generates_a_request_id_per_call_and_sends_only_given_fields(self, client):
+        responses.add(responses.POST, f"{WS}/scan-forms", json={"success": True})
+
+        client.scan_forms.create(["9400"], manifest_date="2026-09-08")
+        client.scan_forms.create(["9400"])
+
+        first, second = sent(0), sent(1)
+        assert set(first) == {"trackingNumbers", "manifestDate", "requestId"}
+        assert first["manifestDate"] == "2026-09-08"
+        assert set(second) == {"trackingNumbers", "requestId"}
+        assert uuid.UUID(first["requestId"]) and uuid.UUID(second["requestId"])
+        assert first["requestId"] != second["requestId"]
+
+    def test_request_model_serializes_to_the_gateway_field_names(self):
+        from datetime import date
+
+        from flexops import ScanFormRequest
+
+        full = ScanFormRequest(tracking_numbers=["9400"], manifest_date=date(2026, 9, 8), request_id="req-1",
+                               origin_postal_code="10001", warehouse_id=7)
+        minimal = ScanFormRequest(tracking_numbers=["9400"])
+
+        assert full.model_dump(mode="json", by_alias=True, exclude_none=True) == {
+            "trackingNumbers": ["9400"], "manifestDate": "2026-09-08", "requestId": "req-1",
+            "originPostalCode": "10001", "warehouseId": 7}
+        assert minimal.model_dump(mode="json", by_alias=True, exclude_none=True) == {"trackingNumbers": ["9400"]}
+        assert ScanFormRequest(tracking_numbers=["9400"], manifest_date="2026-09-08").manifest_date == "2026-09-08"
+
+    @responses.activate
+    def test_create_sends_a_request_model(self, client):
+        from flexops import ScanFormRequest
+
+        responses.add(responses.POST, f"{WS}/scan-forms", json={"success": True})
+
+        client.scan_forms.create(ScanFormRequest(tracking_numbers=["9400"], manifest_date="2026-09-08",
+                                                 request_id="req-1", warehouse_id=7))
+
+        assert sent() == {"trackingNumbers": ["9400"], "manifestDate": "2026-09-08", "requestId": "req-1",
+                          "warehouseId": 7}
+
+    @responses.activate
+    def test_create_generates_a_request_id_for_a_model_without_one(self, client):
+        from flexops import ScanFormRequest
+
+        responses.add(responses.POST, f"{WS}/scan-forms", json={"success": True})
+        request = ScanFormRequest(tracking_numbers=["9400"])
+
+        client.scan_forms.create(request)
+        client.scan_forms.create(request)
+
+        first, second = sent(0), sent(1)
+        assert set(first) == {"trackingNumbers", "requestId"}
+        assert uuid.UUID(first["requestId"]) and uuid.UUID(second["requestId"])
+        assert first["requestId"] != second["requestId"]
+        assert request.request_id is None
+
+    def test_create_refuses_a_model_combined_with_keyword_options(self, client):
+        from flexops import ScanFormRequest
+
+        with pytest.raises(TypeError, match="not both"):
+            client.scan_forms.create(ScanFormRequest(tracking_numbers=["9400"]), manifest_date="2026-09-08")
 
 
 class TestWorkspaces:

@@ -8,9 +8,12 @@
 
 from __future__ import annotations
 
+import uuid
+from datetime import date
 from typing import Any, Callable
 
 from .._http import HttpClient
+from .._types import ScanFormRequest
 
 
 class ScanFormsResource:
@@ -27,9 +30,48 @@ class ScanFormsResource:
         base = f"/api/workspaces/{ws_id}/scan-forms"
         return f"{base}/{suffix}" if suffix else base
 
-    def create(self, tracking_numbers: list[str]) -> dict[str, Any]:
-        """Create a USPS scan form (SCAN/manifest)."""
-        return self._http.post(self._ws_path(), {"trackingNumbers": tracking_numbers})
+    def create(
+        self,
+        tracking_numbers: list[str] | ScanFormRequest,
+        *,
+        manifest_date: date | str | None = None,
+        request_id: str | None = None,
+        origin_postal_code: str | None = None,
+        warehouse_id: int | None = None,
+    ) -> dict[str, Any]:
+        """Create a USPS scan form (SCAN/manifest) for 1 to 1,000 tracking numbers.
+
+        API keys need ``shipping:write``; the public demo keys are refused.
+
+        ``manifest_date`` is the labels' mailing date (a ``date`` or ``YYYY-MM-DD``). Live creation
+        needs it: without it the Gateway answers 400 ``Choose the label mailing date.`` The sandbox
+        defaults it to today (UTC), which is why it is optional here.
+
+        ``request_id`` identifies the operation. Repeating a request with the same ID returns the same
+        form instead of creating another; reusing it with different inputs is 409. When omitted, one is
+        generated for this call and sent on every retry of it, so a retry cannot create a second form.
+        Pass your own to retry the call yourself after an unknown outcome.
+
+        ``origin_postal_code`` is the origin ZIP group to manifest; ``warehouse_id`` limits package
+        selection to one warehouse.
+
+        Instead of the tracking numbers and keyword arguments, you can pass a ``ScanFormRequest`` with the
+        same fields, but not both. A request without ``request_id`` gets a generated one, as above; the
+        model you pass is not changed.
+        """
+        options = (manifest_date, request_id, origin_postal_code, warehouse_id)
+        if isinstance(tracking_numbers, ScanFormRequest):
+            if any(option is not None for option in options):
+                raise TypeError("Pass the SCAN form fields in the ScanFormRequest or as keyword arguments, not both.")
+            request = tracking_numbers
+        else:
+            request = ScanFormRequest(tracking_numbers=tracking_numbers, manifest_date=manifest_date,
+                                      request_id=request_id, origin_postal_code=origin_postal_code,
+                                      warehouse_id=warehouse_id)
+        body: dict[str, Any] = request.model_dump(mode="json", by_alias=True, exclude_none=True)
+        if not body.get("requestId"):
+            body["requestId"] = str(uuid.uuid4())
+        return self._http.post(self._ws_path(), body)
 
     def list(self) -> dict[str, Any]:
         """List scan forms."""

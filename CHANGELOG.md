@@ -7,10 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `scan_forms.create()` takes keyword-only `manifest_date` (a `date` or `YYYY-MM-DD`, sent as `manifestDate`),
+  `request_id`, `origin_postal_code` and `warehouse_id`, the fields of the Gateway's SCAN form request. Live creation
+  needs `manifest_date`: without it the Gateway answers 400 `Choose the label mailing date.` It stays optional because
+  the sandbox defaults it to today. Existing `create(tracking_numbers)` calls keep working.
+- `ScanFormRequest` has the same optional fields (`manifest_date`, `request_id`, `origin_postal_code`,
+  `warehouse_id`), serialized with the Gateway's names and left out when unset. `scan_forms.create()` accepts a
+  `ScanFormRequest` in place of the tracking numbers and keyword arguments (passing both is a `TypeError`). A model
+  without `request_id` gets a generated one that is reused on every retry; the model itself is not changed.
+
 ### Changed
+- Docs: `pickups.schedule()`/`cancel()` and `scan_forms.create()` need `shipping:write` with an API key, and the
+  public demo keys cannot use them. `rules.test()` needs `shipping:read`. Shipping rule changes (`rules.create()`,
+  `update()`, `delete()`, `reorder()`) and member changes (`workspaces.invite_member()`, `remove_member()`,
+  `update_member_role()`) are for signed-in users only: API keys get 403 `SIGNED_IN_USER_REQUIRED`.
 - Docs: batch label items (`BatchLabelItem`, `shipping.create_batch`, `shipping.preview_batch`) and
   `returns.generate_label` now say that `hazmat_classification` accepts only `HazmatClassification.NONE` (0) or
   nothing; the Gateway refuses any other class with 400 `HazmatNotSupported`. No behavior change.
+
+### Fixed
+- `scan_forms.create()` sends a `requestId`: yours, or a UUID generated for the call and sent on every retry of it.
+  Before, it sent none, so the Gateway gave each attempt a new ID and a retry after a lost response could create a
+  second form. Repeating a request with the same `requestId` returns the same form; reusing it with different
+  inputs is 409.
 
 ## [3.2.0] - 2026-10-22
 

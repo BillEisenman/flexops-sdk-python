@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from enum import Enum, IntEnum
 from typing import Any, Generic, Literal, TypeVar
 
@@ -756,7 +757,18 @@ class PickupConfirmation(_CamelModel):
 
 
 class ScanFormRequest(_CamelModel):
+    """The Gateway's ``CreateScanFormRequest``. Unset optional fields are left out of the request.
+
+    ``manifest_date`` (a ``date`` or ``YYYY-MM-DD``) is required for live creation; the sandbox defaults it to
+    today (UTC). When ``request_id`` is unset, ``scan_forms.create()`` generates one for the call and reuses it
+    on every retry.
+    """
+
     tracking_numbers: list[str]
+    manifest_date: date | str | None = None
+    request_id: str | None = None
+    origin_postal_code: str | None = None
+    warehouse_id: int | None = None
 
 
 class ScanForm(_CamelModel):
