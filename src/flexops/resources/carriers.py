@@ -42,7 +42,9 @@ def _deprecated(method: _F) -> _F:
 class _UspsCarrier:
     """USPS carrier operations via VisionSuite API proxy (V3 endpoints).
 
-    Writes are deprecated and need a user token.
+    With an API key, address, ZIP, city and location lookups require ``shipping:read``, tracking
+    requires ``tracking:read`` and delivery standards require ``rates:read``. Writes are deprecated and
+    need a user token.
     """
 
     def __init__(self, http: HttpClient) -> None:
@@ -134,7 +136,7 @@ class _UspsCarrier:
 class _UpsCarrier:
     """UPS carrier operations via VisionSuite API proxy (V2 endpoints).
 
-    Writes are deprecated and need a user token.
+    With an API key, tracking requires ``tracking:read``. Writes are deprecated and need a user token.
     """
 
     def __init__(self, http: HttpClient) -> None:
@@ -303,7 +305,9 @@ class _FedExCarrier:
 class _DhlCarrier:
     """DHL carrier operations via VisionSuite API proxy (V2 endpoints).
 
-    Writes are deprecated and need a user token.
+    With an API key, address validation, service points and reference data require ``shipping:read``;
+    tracking and proof of delivery require ``tracking:read``; rates and products require
+    ``rates:read``. Writes are deprecated and need a user token.
     """
 
     def __init__(self, http: HttpClient) -> None:
@@ -375,7 +379,11 @@ class _DhlCarrier:
 class CarriersResource:
     """Carrier-specific operations via the legacy VisionSuite Core Services API proxy.
 
-    Lookups (``GET``) work with an API key or a user token. The writes are deprecated: they need a
+    Lookups (``GET``) work with a user token, or an API key that has the permission for the data they
+    read: address, ZIP, city, location, service point and reference lookups require ``shipping:read``;
+    tracking and proof of delivery require ``tracking:read``; delivery standards, rates and products
+    require ``rates:read``. A key without the permission gets 403 ``API_KEY_SCOPE_REQUIRED``; keys
+    created with the default permissions have all three. The writes are deprecated: they need a
     user token (``auth.login``), since API keys get 403 ``API_KEY_SCOPE_REQUIRED``, and they stop working
     when the proxy is retired on 2027-06-30. Use ``client.shipping`` (rates, labels, cancellation,
     tracking, address validation), ``client.pickups`` and ``client.scan_forms`` where they cover the
