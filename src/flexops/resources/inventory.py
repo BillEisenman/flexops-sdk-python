@@ -14,7 +14,11 @@ from .._http import HttpClient
 
 
 class InventoryResource:
-    """Inventory reads via the legacy VisionSuite API proxy (read-only: the proxy refuses API-key writes)."""
+    """Inventory reads via the legacy VisionSuite API proxy (read-only: the proxy refuses API-key writes).
+
+    With an API key, every method requires the ``inventory:read`` permission; a key without it gets 403
+    ``API_KEY_SCOPE_REQUIRED``. Keys created with the default permissions include ``inventory:read``.
+    """
 
     def __init__(self, http: HttpClient) -> None:
         self._http = http

@@ -7,7 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `scan_forms.create()` takes keyword-only `manifest_date` (a `date` or `YYYY-MM-DD`, sent as `manifestDate`),
+  `request_id`, `origin_postal_code` and `warehouse_id`, the fields of the Gateway's SCAN form request. Live creation
+  needs `manifest_date`: without it the Gateway answers 400 `Choose the label mailing date.` It stays optional because
+  the sandbox defaults it to today. Existing `create(tracking_numbers)` calls keep working.
+- `ScanFormRequest` has the same optional fields (`manifest_date`, `request_id`, `origin_postal_code`,
+  `warehouse_id`), serialized with the Gateway's names and left out when unset. `scan_forms.create()` accepts a
+  `ScanFormRequest` in place of the tracking numbers and keyword arguments (passing both is a `TypeError`). A model
+  without `request_id` gets a generated one that is reused on every retry; the model itself is not changed.
+
 ### Changed
+- Docs: `pickups.schedule()`/`cancel()` and `scan_forms.create()` need `shipping:write` with an API key, and the
+  public demo keys cannot use them. `rules.test()` needs `shipping:read`. Shipping rule changes (`rules.create()`,
+  `update()`, `delete()`, `reorder()`) and member changes (`workspaces.invite_member()`, `remove_member()`,
+  `update_member_role()`) are for signed-in users only: API keys get 403 `SIGNED_IN_USER_REQUIRED`.
 - Docs: batch label items (`BatchLabelItem`, `shipping.create_batch`, `shipping.preview_batch`) and
   `returns.generate_label` now say that `hazmat_classification` accepts only `HazmatClassification.NONE` (0) or
   nothing; the Gateway refuses any other class with 400 `HazmatNotSupported`. No behavior change.
@@ -18,6 +32,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   delivery's payload (order and customer data). A client with an API key sends the key even when an access token
   is set. The README webhook example now signs in first. `verify_signature` needs no credentials. No behavior
   change.
+
+### Fixed
+- `scan_forms.create()` sends a `requestId`: yours, or a UUID generated for the call and sent on every retry of it.
+  Before, it sent none, so the Gateway gave each attempt a new ID and a retry after a lost response could create a
+  second form. Repeating a request with the same `requestId` returns the same form; reusing it with different
+  inputs is 409.
+- `ScanForm` now matches the form the Gateway returns in `data` from `scan_forms.create()`, `get()` and `list()`:
+  `scan_form_id`, `state` (new `ScanFormState`: `CREATED` or `OUTCOME_UNKNOWN`), `origin_postal_code`,
+  `tracking_numbers`, `created_at_utc`, `scan_form_image` (the base64 PDF, `None` for sandbox forms and unresolved
+  operations; `pdf_bytes()` decodes it), `manifest_number`, `manifest_date`, `package_count`, `status_message`,
+  `success`, `error_message` and `is_sandbox`. Before, it required `form_data` and `created_at`, which the Gateway
+  never sends, so `ScanForm.model_validate(reply["data"])` raised a validation error. Both stay as deprecated
+  optional fields filled from `scan_form_image` and the `createdAtUtc` text. The resource methods still return the
+  envelope as a `dict`, unchanged.
+- Docs: `scan_forms.create()` raises `FlexOpsError` with status 409 when the `request_id` was used with different
+  inputs, when the packages already belong to a manifest, or when an operation needs review (its message names the
+  operation). These are not retried.
 
 ## [3.2.0] - 2026-10-22
 

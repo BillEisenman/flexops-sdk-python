@@ -8,10 +8,12 @@
 
 from __future__ import annotations
 
+import base64
+from datetime import date, datetime
 from enum import Enum, IntEnum
 from typing import Any, Generic, Literal, TypeVar
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 from pydantic.alias_generators import to_camel
 
 T = TypeVar("T")
@@ -756,11 +758,72 @@ class PickupConfirmation(_CamelModel):
 
 
 class ScanFormRequest(_CamelModel):
+    """The Gateway's ``CreateScanFormRequest``. Unset optional fields are left out of the request.
+
+    ``manifest_date`` (a ``date`` or ``YYYY-MM-DD``) is required for live creation; the sandbox defaults it to
+    today (UTC). When ``request_id`` is unset, ``scan_forms.create()`` generates one for the call and reuses it
+    on every retry.
+    """
+
     tracking_numbers: list[str]
+    manifest_date: date | str | None = None
+    request_id: str | None = None
+    origin_postal_code: str | None = None
+    warehouse_id: int | None = None
+
+
+class ScanFormState(str, Enum):
+    """Values of ``ScanForm.state``. The Gateway may add others; treat them like ``OUTCOME_UNKNOWN``."""
+
+    CREATED = "Created"
+    """USPS returned the manifest, and the Gateway saved its number and PDF."""
+    OUTCOME_UNKNOWN = "OutcomeUnknown"
+    """The carrier's answer was lost or did not match. The packages stay reserved: do not submit them again."""
 
 
 class ScanForm(_CamelModel):
+    """A SCAN form (USPS PS Form 5630 manifest) as the Gateway returns it in ``data`` from
+    ``scan_forms.create()``, ``get()`` and (as a list) ``list()``. Read one with
+    ``ScanForm.model_validate(response["data"])``.
+
+    ``scan_form_image`` is the base64 PDF (``pdf_bytes()`` decodes it); it is ``None`` for sandbox forms,
+    which are never sent to USPS, and for an operation whose outcome is unknown. ``manifest_number`` starts
+    with ``SBOX`` in the sandbox and is empty while the outcome is unknown. ``success`` is true when
+    ``state`` is ``Created``. ``error_message`` is not set by the current Gateway: a refused request raises
+    ``FlexOpsError`` instead.
+
+    ``form_data`` and ``created_at`` are deprecated: the Gateway never sent them. They are filled from
+    ``scan_form_image`` and the ``createdAtUtc`` text so older code keeps working.
+    """
+
     scan_form_id: str
-    form_data: str
-    tracking_numbers: list[str]
-    created_at: str
+    state: str
+    origin_postal_code: str | None = None
+    tracking_numbers: list[str] = []
+    created_at_utc: datetime
+    scan_form_image: str | None = None
+    manifest_number: str | None = None
+    manifest_date: datetime | None = None
+    package_count: int = 0
+    status_message: str | None = None
+    success: bool = False
+    error_message: str | None = None
+    is_sandbox: bool = False
+    form_data: str | None = None
+    created_at: str | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _fill_deprecated_names(cls, value: Any) -> Any:
+        if isinstance(value, dict):
+            value = dict(value)
+            image, created = value.get("scanFormImage"), value.get("createdAtUtc")
+            if value.get("formData") is None and value.get("form_data") is None and image is not None:
+                value["formData"] = image
+            if value.get("createdAt") is None and value.get("created_at") is None and isinstance(created, str):
+                value["createdAt"] = created
+        return value
+
+    def pdf_bytes(self) -> bytes | None:
+        """Decode ``scan_form_image``, or return ``None`` when the form has no PDF."""
+        return base64.b64decode(self.scan_form_image) if self.scan_form_image is not None else None

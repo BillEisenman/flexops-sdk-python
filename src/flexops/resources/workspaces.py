@@ -67,13 +67,21 @@ class WorkspacesResource:
         """Invite a user to the workspace. Needs the Owner or Admin role.
 
         ``role`` is a ``WorkspaceRole``, its name (``"Admin"``) or its number; it is sent as the number.
+
+        Signed-in users only: API keys get 403 ``SIGNED_IN_USER_REQUIRED``, whatever their scopes.
         """
         return self._http.post(self._ws_path("members/invite"), {"email": email, "role": _to_role(role)})
 
     def remove_member(self, user_id: str) -> dict[str, Any]:
-        """Remove a member from the workspace."""
+        """Remove a member from the workspace.
+
+        Signed-in users only: API keys get 403 ``SIGNED_IN_USER_REQUIRED``, whatever their scopes.
+        """
         return self._http.delete(self._ws_path(f"members/{user_id}"))
 
     def update_member_role(self, user_id: str, role: WorkspaceRole | RoleName | int) -> dict[str, Any]:
-        """Change a member's role. ``role`` is a ``WorkspaceRole``, its name or its number."""
+        """Change a member's role. ``role`` is a ``WorkspaceRole``, its name or its number.
+
+        Signed-in users only: API keys get 403 ``SIGNED_IN_USER_REQUIRED``, whatever their scopes.
+        """
         return self._http.put(self._ws_path(f"members/{user_id}/role"), {"newRole": _to_role(role)})

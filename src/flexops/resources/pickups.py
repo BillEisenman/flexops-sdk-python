@@ -29,7 +29,7 @@ class PickupsResource:
         return f"{base}/{suffix}" if suffix else base
 
     def schedule(self, request: dict[str, Any]) -> dict[str, Any]:
-        """Schedule a carrier pickup.
+        """Schedule a carrier pickup. API keys need ``shipping:write``; the public demo keys are refused.
 
         ``request`` is the Gateway ``SchedulePickupRequest``: ``carrierCode``, ``pickupDate``,
         ``street``, ``city``, ``state``, ``postalCode`` and ``packageCount``, plus optional ``country``
@@ -47,7 +47,10 @@ class PickupsResource:
         return self._http.get(self._ws_path(pickup_id), _carrier_query(carrier_code))
 
     def cancel(self, pickup_id: str, *, carrier_code: str | None = None) -> dict[str, Any]:
-        """Cancel a scheduled pickup. ``carrier_code`` defaults to ``usps`` on the Gateway."""
+        """Cancel a scheduled pickup. ``carrier_code`` defaults to ``usps`` on the Gateway.
+
+        API keys need ``shipping:write``; the public demo keys are refused.
+        """
         query = _carrier_query(carrier_code)
         suffix = f"{pickup_id}?carrierCode={quote(carrier_code, safe='')}" if query else pickup_id
         return self._http.delete(self._ws_path(suffix))
