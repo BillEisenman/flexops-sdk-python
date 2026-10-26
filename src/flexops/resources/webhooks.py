@@ -62,7 +62,16 @@ def _to_envelope(body: Any) -> dict[str, Any]:
 
 
 class WebhooksResource:
-    """Webhook subscription management and signature verification."""
+    """Webhook subscription management and signature verification.
+
+    Every method that calls the Gateway needs a signed-in user's access token (``access_token=``,
+    ``set_access_token()`` or ``auth.login()``). The Gateway refuses API keys on every webhook route,
+    reads included, with 403 ``SIGNED_IN_USER_REQUIRED`` (a ``FlexOpsError`` with that ``code``),
+    whatever the key's scopes. Reads are refused too because webhook delivery logs carry each
+    delivery's payload (order and customer data). A client with an API key sends the key even when an
+    access token is also set, so call these methods from a client created without ``api_key``.
+    ``verify_signature`` makes no request and needs no credentials.
+    """
 
     def __init__(self, http: HttpClient, get_workspace_id: Callable[[], str | None]) -> None:
         self._http = http
@@ -76,7 +85,16 @@ class WebhooksResource:
         return f"{base}/{suffix}" if suffix else base
 
     def list(self) -> dict[str, Any]:
-        """List all webhook subscriptions for the workspace."""
+        """List all webhook subscriptions for the workspace.
+
+        Needs a signed-in user's access token (``access_token=``, ``set_access_token()`` or
+        ``auth.login()``). Reads are signed-in only, like the writes, because webhook delivery logs
+        carry each delivery's payload (order and customer data).
+
+        Raises:
+            FlexOpsError: ``status`` 403 with ``code`` ``SIGNED_IN_USER_REQUIRED`` when the client
+                authenticates with an API key.
+        """
         return self._http.get(self._ws_path())
 
     def create(
@@ -94,8 +112,13 @@ class WebhooksResource:
         Returns ``{"success": True, "data": <subscription>}``; ``result["data"]["secret"]`` is the
         signing secret, returned only here.
 
+        Needs a signed-in user's access token (``access_token=``, ``set_access_token()`` or
+        ``auth.login()``).
+
         Raises:
             ValueError: ``events`` is empty or names an event FlexOps never sends.
+            FlexOpsError: ``status`` 403 with ``code`` ``SIGNED_IN_USER_REQUIRED`` when the client
+                authenticates with an API key.
         """
         body: dict[str, Any] = {"url": url}
         if description is not None:
@@ -111,8 +134,13 @@ class WebhooksResource:
         and ``events``, a list of ``WebhookEventType`` names that replaces the subscribed events
         and is sent as ``eventTypes``.
 
+        Needs a signed-in user's access token (``access_token=``, ``set_access_token()`` or
+        ``auth.login()``).
+
         Raises:
             ValueError: ``events`` is empty or names an event FlexOps never sends.
+            FlexOpsError: ``status`` 403 with ``code`` ``SIGNED_IN_USER_REQUIRED`` when the client
+                authenticates with an API key.
         """
         body = dict(data)
         if "events" in body:
@@ -120,19 +148,52 @@ class WebhooksResource:
         return self._http.put(self._ws_path(webhook_id), body)
 
     def delete(self, webhook_id: str) -> None:
-        """Delete a webhook subscription. The Gateway answers 204 No Content, so this returns ``None``."""
+        """Delete a webhook subscription. The Gateway answers 204 No Content, so this returns ``None``.
+
+        Needs a signed-in user's access token (``access_token=``, ``set_access_token()`` or
+        ``auth.login()``).
+
+        Raises:
+            FlexOpsError: ``status`` 403 with ``code`` ``SIGNED_IN_USER_REQUIRED`` when the client
+                authenticates with an API key.
+        """
         return self._http.delete(self._ws_path(webhook_id))
 
     def rotate_secret(self, webhook_id: str) -> dict[str, Any]:
-        """Rotate the signing secret for a webhook."""
+        """Rotate the signing secret for a webhook.
+
+        Needs a signed-in user's access token (``access_token=``, ``set_access_token()`` or
+        ``auth.login()``).
+
+        Raises:
+            FlexOpsError: ``status`` 403 with ``code`` ``SIGNED_IN_USER_REQUIRED`` when the client
+                authenticates with an API key.
+        """
         return self._http.post(self._ws_path(f"{webhook_id}/rotate-secret"))
 
     def list_delivery_logs(self, webhook_id: str) -> dict[str, Any]:
-        """List delivery logs for a webhook."""
+        """List delivery logs for a webhook.
+
+        Needs a signed-in user's access token (``access_token=``, ``set_access_token()`` or
+        ``auth.login()``). Reads are signed-in only, like the writes, because webhook delivery logs
+        carry each delivery's payload (order and customer data).
+
+        Raises:
+            FlexOpsError: ``status`` 403 with ``code`` ``SIGNED_IN_USER_REQUIRED`` when the client
+                authenticates with an API key.
+        """
         return self._http.get(self._ws_path(f"{webhook_id}/deliveries"))
 
     def test(self, webhook_id: str) -> dict[str, Any]:
-        """Send a test event (``X-FlexOps-Event: test``) to a webhook. Needs the Owner or Admin role."""
+        """Send a test event (``X-FlexOps-Event: test``) to a webhook. Needs the Owner or Admin role.
+
+        Needs a signed-in user's access token (``access_token=``, ``set_access_token()`` or
+        ``auth.login()``).
+
+        Raises:
+            FlexOpsError: ``status`` 403 with ``code`` ``SIGNED_IN_USER_REQUIRED`` when the client
+                authenticates with an API key.
+        """
         return self._http.post(self._ws_path(f"{webhook_id}/test"))
 
     @staticmethod
