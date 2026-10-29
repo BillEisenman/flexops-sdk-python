@@ -67,8 +67,8 @@ class HttpClient:
     def patch(self, path: str, body: Any = None) -> Any:
         return self.request("PATCH", path, body=body)
 
-    def delete(self, path: str) -> Any:
-        return self.request("DELETE", path)
+    def delete(self, path: str, query: dict[str, Any] | None = None) -> Any:
+        return self.request("DELETE", path, query=query)
 
     # -- Core request -------------------------------------------------------
 

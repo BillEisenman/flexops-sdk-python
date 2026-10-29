@@ -74,6 +74,25 @@ class TestCarriers:
         with pytest.warns(DeprecationWarning):
             assert client.carriers.dhl.cancel_pickup() is None
 
+    @responses.activate
+    def test_usps_cancels_name_what_they_cancel(self, client):
+        for path in ("CarrierPickup/cancelUspsCarrierPickupSchedule", "Shipping/cancelUspsDomesticShipmentLabel",
+                     "Shipping/cancelUspsInternationalShipmentLabel"):
+            responses.add(responses.DELETE, f"{BASE_URL}/api/ApiProxy/api/v3/{path}", status=204)
+
+        with pytest.warns(DeprecationWarning):
+            client.carriers.usps.cancel_pickup("WTC 123")
+            client.carriers.usps.cancel_domestic_label("9400111899223456789012")
+            client.carriers.usps.cancel_international_label("LZ123456789US")
+
+        assert [call.request.url.removeprefix(BASE_URL) for call in responses.calls] == [
+            "/api/ApiProxy/api/v3/CarrierPickup/cancelUspsCarrierPickupSchedule?confirmationNumber=WTC+123",
+            "/api/ApiProxy/api/v3/Shipping/cancelUspsDomesticShipmentLabel?trackingNumber=9400111899223456789012",
+            "/api/ApiProxy/api/v3/Shipping/cancelUspsInternationalShipmentLabel?internationalTrackingNumber=LZ123456789US",
+        ]
+        with pytest.warns(DeprecationWarning), pytest.raises(ValueError, match="confirmationNumber is required."):
+            client.carriers.usps.cancel_pickup(" ")
+
     def test_reads_are_not_deprecated(self, client):
         assert not hasattr(client.carriers.usps.city_state_lookup, "__deprecated__")
 

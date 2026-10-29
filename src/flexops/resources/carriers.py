@@ -88,14 +88,15 @@ class _UspsCarrier:
         return self._http.post(_proxy("api/v3/RateCalculator/postUspsSearchEligibleInternationalPrices"), body)
 
     @_deprecated
-    def cancel_domestic_label(self) -> Any:
-        """Cancel a domestic label."""
-        return self._http.delete(_proxy("api/v3/Shipping/cancelUspsDomesticShipmentLabel"))
+    def cancel_domestic_label(self, tracking_number: str) -> Any:
+        """Cancel a domestic label by its tracking number."""
+        return self._cancel("api/v3/Shipping/cancelUspsDomesticShipmentLabel", "trackingNumber", tracking_number)
 
     @_deprecated
-    def cancel_international_label(self) -> Any:
-        """Cancel an international label."""
-        return self._http.delete(_proxy("api/v3/Shipping/cancelUspsInternationalShipmentLabel"))
+    def cancel_international_label(self, international_tracking_number: str) -> Any:
+        """Cancel an international label by its international tracking number."""
+        return self._cancel("api/v3/Shipping/cancelUspsInternationalShipmentLabel", "internationalTrackingNumber",
+                            international_tracking_number)
 
     def track_summary(self, params: dict[str, str]) -> Any:
         """Get tracking summary."""
@@ -111,9 +112,16 @@ class _UspsCarrier:
         return self._http.post(_proxy("api/v3/CarrierPickup/postUspsCreateCarrierPickupSchedule"), body)
 
     @_deprecated
-    def cancel_pickup(self) -> Any:
-        """Cancel a pickup."""
-        return self._http.delete(_proxy("api/v3/CarrierPickup/cancelUspsCarrierPickupSchedule"))
+    def cancel_pickup(self, confirmation_number: str) -> Any:
+        """Cancel a pickup by its confirmation number."""
+        return self._cancel("api/v3/CarrierPickup/cancelUspsCarrierPickupSchedule", "confirmationNumber",
+                            confirmation_number)
+
+    def _cancel(self, path: str, param: str, value: str) -> Any:
+        """Send a USPS cancel with what it cancels in the query string; without it VSCS answers 400."""
+        if not value or not value.strip():
+            raise ValueError(f"{param} is required.")
+        return self._http.delete(_proxy(path), {param: value})
 
     @_deprecated
     def create_scan_form(self, body: Any) -> Any:

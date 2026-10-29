@@ -34,6 +34,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   change.
 
 ### Fixed
+- `carriers.usps.cancel_pickup(confirmation_number)`, `cancel_domestic_label(tracking_number)` and
+  `cancel_international_label(international_tracking_number)` send what they cancel. Before, they sent no identifier,
+  so VisionSuite answered 400 and nothing was cancelled. A blank value is refused before any request.
 - `scan_forms.create()` sends a `requestId`: yours, or a UUID generated for the call and sent on every retry of it.
   Before, it sent none, so the Gateway gave each attempt a new ID and a retry after a lost response could create a
   second form. Repeating a request with the same `requestId` returns the same form; reusing it with different
