@@ -1,5 +1,6 @@
 {
   "origin": {
+    "name": "Example Sender",
     "addressLine1": "1 Main",
     "city": "San Francisco",
     "stateProvince": "CA",
@@ -7,6 +8,7 @@
     "countryCode": "US"
   },
   "destination": {
+    "name": "Example Recipient",
     "addressLine1": "2 Example",
     "city": "London",
     "stateProvince": "London",
