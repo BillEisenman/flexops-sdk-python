@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-10-30
+
 ### Added
 - `scan_forms.create()` takes keyword-only `manifest_date` (a `date` or `YYYY-MM-DD`, sent as `manifestDate`),
   `request_id`, `origin_postal_code` and `warehouse_id`, the fields of the Gateway's SCAN form request. Live creation
@@ -18,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   without `request_id` gets a generated one that is reused on every retry; the model itself is not changed.
 
 ### Changed
+- The Gateway previews sandbox labels too: a `test_` key now needs `maximumPostageAmount`, and the label comes from the approval.
 - Docs: `pickups.schedule()`/`cancel()` and `scan_forms.create()` need `shipping:write` with an API key, and the
   public demo keys cannot use them. `rules.test()` needs `shipping:read`. Shipping rule changes (`rules.create()`,
   `update()`, `delete()`, `reorder()`) and member changes (`workspaces.invite_member()`, `remove_member()`,
