@@ -72,7 +72,7 @@ Keep the same key and request across retries. An uncertain outcome needs reconci
 do not start another purchase with a new key. An expired approval returns 409
 `ApprovalExpired`; obtain and explicitly approve a fresh preview when no purchase is
 unresolved. The ceiling bounds postage authorization, not later adjustments or separate
-fees. Sandbox execution bypasses approval; batch, return, and raw carrier routes have
+fees. Sandbox keys follow the same approval and buy no postage; batch, return, and raw carrier routes have
 separate contracts. The SDK never automatically confirms a preview.
 
 ## Authentication
