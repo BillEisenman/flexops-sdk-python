@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-`flexops` is the **official hand-crafted Python SDK** for the FlexOps Platform. It targets the FlexOps **Gateway BFF**. Published to PyPI as `flexops`; current tag `v1.0.1`. Python 3.10+.
+`flexops` is the **official hand-crafted Python SDK** for the FlexOps Platform. It targets the FlexOps **Gateway BFF**. Published to PyPI as `flexops`; `pyproject.toml` holds the current version. Python 3.10+.
 
 > **Gateway-targeted, not VSCS-targeted.** All hand-crafted SDKs in this family (.NET, Node, Python, Go, PHP, Ruby) hit Gateway. The Java SDK is the lone exception — it was auto-generated against VisionSuiteCoreServices and is archived as of 2026-03-08.
 
@@ -12,9 +12,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 pip install -e .                                 # Editable install for local dev
-pip install -e ".[dev]"                          # With dev/test extras (if configured)
+pip install -e ".[dev]"                          # With dev/test extras
 python -m build                                  # Build sdist + wheel into dist/
-python -m pytest                                 # Run tests (if pytest configured)
+python -m pytest                                 # Run tests
 ```
 
 ## Architecture
@@ -44,7 +44,7 @@ Customer Python app  →  flexops (this repo)  →  Gateway BFF (gateway.flexops
 
 ## Publish
 
-GitHub Actions handles PyPI publish via **OIDC trusted publishing** (no long-lived `PYPI_TOKEN`). Bump `version` in `pyproject.toml`, tag, push — the workflow does `python -m build` and `twine upload`.
+GitHub Actions handles PyPI publish via **OIDC trusted publishing** (no long-lived `PYPI_TOKEN`). Bump `version` in `pyproject.toml`, tag, push — the workflow builds, runs `twine check`, and publishes with `pypa/gh-action-pypi-publish`.
 
 ## Related Repositories
 
